@@ -290,7 +290,11 @@ async function api(url, opts) {
 
 async function load() {
   const data = await api('/api/items');
-  if (data) { items = data; render(); }
+  if (data) {
+    items = data;
+    lastDataHash = JSON.stringify(data);
+    render();
+  }
 }
 
 function render() {
@@ -479,8 +483,19 @@ function showToast(msg) { document.getElementById('toast-msg').textContent = msg
 function hideToast() { document.getElementById('toast').classList.remove('show'); }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-// Auto-refresh fallback (only if realtime not connected)
-setInterval(() => { if (!realtimeChannel) load(); }, 5000);
+// Auto-refresh fallback (only if realtime not connected, and only re-render if data changed)
+let lastDataHash = '';
+setInterval(async () => {
+  if (realtimeChannel) return;
+  const data = await api('/api/items');
+  if (!data) return;
+  const hash = JSON.stringify(data);
+  if (hash !== lastDataHash) {
+    lastDataHash = hash;
+    items = data;
+    render();
+  }
+}, 5000);
 
 // Export to PDF
 function exportPDF() {
