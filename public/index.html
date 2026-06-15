@@ -6,7 +6,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="/manifest.json">
 <title>Grocery List</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root { --bg: #f5f5f5; --card: #fff; --text: #333; --muted: #666; --border: #ddd; --green: #4CAF50; --orange: #ff9800; --red: #f44336; --blue: #2196F3; }
 [data-theme="dark"] { --bg: #1a1a1a; --card: #2d2d2d; --text: #eee; --muted: #aaa; --border: #444; }
@@ -564,8 +563,13 @@ if ('Notification' in window && Notification.permission === 'default') Notificat
 
 // Init
 updateOfflineStatus();
-initRealtime();
 load();
+
+// Load Supabase async (non-blocking)
+const sbScript = document.createElement('script');
+sbScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+sbScript.onload = () => initRealtime();
+document.head.appendChild(sbScript);
 </script>
 </body>
 </html>
