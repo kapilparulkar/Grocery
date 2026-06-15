@@ -144,3 +144,4 @@ npx netlify dev
 Open: http://localhost:8888
 ```Kapil
 ```
+# Supabase pass FAPS7chsPF5xM0na
