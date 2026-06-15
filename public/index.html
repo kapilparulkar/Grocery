@@ -61,7 +61,10 @@ h1 { font-size: 1.4rem; }
 .qty-ctrl span { font-size: .85rem; min-width: 18px; text-align: center; }
 .btn-toggle { background: var(--orange); color: #fff; }
 .item.out .btn-toggle { background: var(--green); }
-.btn-del { background: var(--red); color: #fff; }
+.btn-del { background: var(--red); color: #fff; display: none; }
+.delete-mode .item .btn-del { display: inline-block; }
+.btn-del-mode { background: var(--red); }
+.btn-del-mode.active { background: #b71c1c; box-shadow: 0 0 0 2px var(--red); }
 
 .toast { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: .9rem; z-index: 999; display: none; align-items: center; gap: 10px; animation: slideIn .3s ease; }
 .toast.show { display: flex; }
@@ -123,6 +126,7 @@ h1 { font-size: 1.4rem; }
     <button class="btn-add" onclick="addItem()">➕ Add</button>
     <button class="btn-voice" id="voiceBtn" onclick="voiceInput()">🎤 Voice</button>
     <button class="btn-bulk" onclick="openBulk()">📝 Bulk</button>
+    <button class="btn-del-mode" id="delBtn" onclick="toggleDeleteMode()">🗑️ Delete</button>
   </div>
   <div id="list"></div>
 </div>
@@ -195,6 +199,14 @@ function switchTab(tab) {
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 function selectCat(cat) { haptic(); activeCat = cat; render(); }
 
+function toggleDeleteMode() {
+  haptic();
+  const list = document.getElementById('tab-list');
+  const btn = document.getElementById('delBtn');
+  list.classList.toggle('delete-mode');
+  btn.classList.toggle('active');
+}
+
 // API
 async function api(url, opts) {
   try {
@@ -233,7 +245,7 @@ function render() {
 
   let html = '';
   for (const cat of visibleCats) {
-    const catItems = categories[cat].sort((a,b) => b.in_stock - a.in_stock);
+    const catItems = categories[cat].sort((a,b) => b.in_stock - a.in_stock || a.name.localeCompare(b.name));
     html += `<div class="category-group"><div class="category-title">${esc(cat)} (${catItems.length})</div>`;
     for (const it of catItems) {
       const cls = it.in_stock ? '' : ' out';
@@ -278,9 +290,11 @@ async function toggle(id) {
 }
 
 async function changeQty(id, newQty) {
-  if (newQty < 1) return;
+  if (newQty < 0) return;
   haptic();
-  const data = await api(`/api/items/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({quantity: newQty}) });
+  const updates = { quantity: newQty };
+  if (newQty === 0) updates.in_stock = false;
+  const data = await api(`/api/items/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates) });
   if (data) { const idx = items.findIndex(i => i.id === id); if (idx >= 0) items[idx] = data; render(); }
 }
 
