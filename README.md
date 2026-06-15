@@ -62,7 +62,20 @@ In Netlify dashboard → Site settings → Environment variables:
 
 Then **redeploy** (Deploys → Trigger deploy).
 
-### Step 5: Load Default Indian Groceries (Optional)
+### Step 5: Enable Realtime in Frontend
+
+Add these meta tags to `public/index.html` inside `<head>` (after the Supabase script tag):
+
+```html
+<meta name="supabase-url" content="https://your-project.supabase.co">
+<meta name="supabase-key" content="your-anon-public-key">
+```
+
+Also in Supabase dashboard: **Database** → **Replication** → Enable realtime for the `items` table.
+
+This enables **instant sync** across all family devices — no more 5s polling delay.
+
+### Step 6: Load Default Indian Groceries (Optional)
 
 In Supabase SQL Editor, run:
 
@@ -142,6 +155,3 @@ npx netlify dev
 ```
 
 Open: http://localhost:8888
-```Kapil
-```
-# Supabase pass FAPS7chsPF5xM0na
