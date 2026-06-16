@@ -168,12 +168,15 @@ async function loginWithGoogle() {
 }
 
 async function checkFamily() {
+  const addMode = new URLSearchParams(window.location.search).get('add') === 'true';
   const res = await callApi('/api/auth/me');
-  if (res && res.member) {
+  if (res && res.memberships && res.memberships.length > 0 && !addMode) {
     goToApp();
   } else {
-    document.getElementById('welcome-name').textContent =
-      `Hi ${currentUser.user_metadata?.full_name?.split(' ')[0] || 'there'}! Set up your family list`;
+    const name = currentUser.user_metadata?.full_name?.split(' ')[0] || 'there';
+    document.getElementById('welcome-name').textContent = addMode
+      ? `Hi ${name}! Add another home`
+      : `Hi ${name}! Set up your family list`;
     showScreen('screen-family-choose');
   }
 }
