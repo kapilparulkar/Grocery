@@ -13,12 +13,49 @@ function getSupabase(token) {
   });
 }
 
-// Admin client for operations that bypass RLS (e.g. checking invite codes)
-const adminSupabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+function getAdmin() {
+  return createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
+  );
+}
 
 function resp(statusCode, data) {
   return { statusCode, headers, body: JSON.stringify(data) };
 }
+
+const DEFAULT_ITEMS = [
+  {name:'Rice (Basmati)',category:'Produce',quantity:5},{name:'Wheat Flour (Atta)',category:'Produce',quantity:5},
+  {name:'Toor Dal',category:'Produce',quantity:1},{name:'Moong Dal',category:'Produce',quantity:1},
+  {name:'Chana Dal',category:'Produce',quantity:1},{name:'Urad Dal',category:'Produce',quantity:1},
+  {name:'Masoor Dal',category:'Produce',quantity:1},{name:'Rajma',category:'Produce',quantity:1},
+  {name:'Chole (Chickpeas)',category:'Produce',quantity:1},{name:'Poha',category:'Produce',quantity:1},
+  {name:'Suji (Semolina)',category:'Produce',quantity:1},{name:'Besan (Gram Flour)',category:'Produce',quantity:1},
+  {name:'Onions',category:'Produce',quantity:2},{name:'Tomatoes',category:'Produce',quantity:1},
+  {name:'Potatoes',category:'Produce',quantity:2},{name:'Green Chillies',category:'Produce',quantity:1},
+  {name:'Ginger',category:'Produce',quantity:1},{name:'Garlic',category:'Produce',quantity:1},
+  {name:'Coriander Leaves',category:'Produce',quantity:1},{name:'Curry Leaves',category:'Produce',quantity:1},
+  {name:'Spinach (Palak)',category:'Produce',quantity:1},{name:'Cauliflower',category:'Produce',quantity:1},
+  {name:'Capsicum',category:'Produce',quantity:1},{name:'Okra (Bhindi)',category:'Produce',quantity:1},
+  {name:'Milk',category:'Dairy',quantity:2},{name:'Curd (Dahi)',category:'Dairy',quantity:1},
+  {name:'Paneer',category:'Dairy',quantity:1},{name:'Butter',category:'Dairy',quantity:1},{name:'Ghee',category:'Dairy',quantity:1},
+  {name:'Turmeric Powder (Haldi)',category:'Other',quantity:1},{name:'Red Chilli Powder',category:'Other',quantity:1},
+  {name:'Coriander Powder',category:'Other',quantity:1},{name:'Cumin Powder (Jeera)',category:'Other',quantity:1},
+  {name:'Garam Masala',category:'Other',quantity:1},{name:'Cumin Seeds',category:'Other',quantity:1},
+  {name:'Mustard Seeds',category:'Other',quantity:1},{name:'Hing (Asafoetida)',category:'Other',quantity:1},
+  {name:'Salt',category:'Other',quantity:1},{name:'Sugar',category:'Other',quantity:1},
+  {name:'Mustard Oil',category:'Other',quantity:1},{name:'Sunflower Oil',category:'Other',quantity:1},
+  {name:'Tamarind (Imli)',category:'Other',quantity:1},{name:'Jaggery (Gud)',category:'Other',quantity:1},
+  {name:'Tea (Chai Patti)',category:'Beverages',quantity:1},{name:'Coffee Powder',category:'Beverages',quantity:1},
+  {name:'Biscuits',category:'Snacks',quantity:2},{name:'Maggi Noodles',category:'Snacks',quantity:4},
+  {name:'Papad',category:'Snacks',quantity:1},{name:'Pickle (Achar)',category:'Snacks',quantity:1},
+  {name:'Cashews (Kaju)',category:'Snacks',quantity:1},{name:'Almonds (Badam)',category:'Snacks',quantity:1},
+  {name:'Bread',category:'Bakery',quantity:1},{name:'Peas',category:'Frozen',quantity:1},
+  {name:'Dish Soap (Vim)',category:'Household',quantity:1},{name:'Detergent',category:'Household',quantity:1},
+  {name:'Floor Cleaner',category:'Household',quantity:1},{name:'Dustbin Bags',category:'Household',quantity:1},
+  {name:'Soap',category:'Personal Care',quantity:2},{name:'Shampoo',category:'Personal Care',quantity:1},
+  {name:'Toothpaste',category:'Personal Care',quantity:1}
+];
 
 exports.handler = async (event) => {
   const path = event.path.replace('/.netlify/functions/api/', '').replace('/api/', '');
@@ -27,132 +64,75 @@ exports.handler = async (event) => {
 
   if (method === 'OPTIONS') return { statusCode: 200, headers, body: '' };
 
-  // Extract auth token
   const token = event.headers.authorization?.replace('Bearer ', '');
   if (!token) return resp(401, { error: 'Unauthorized' });
 
   const supabase = getSupabase(token);
-
-  // Get current user
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) return resp(401, { error: 'Invalid token' });
 
   try {
 
-    // ── AUTH / FAMILY ENDPOINTS ──────────────────────────────────────
-
-    // GET /auth/me — get user + family info
+    // GET /auth/me
     if (path === 'auth/me' && method === 'GET') {
       const { data: member } = await supabase
         .from('family_members')
         .select('display_name, role, family_id, families(id, name, invite_code)')
-        .eq('user_id', user.id)
-        .single();
+        .eq('user_id', user.id).single();
       return resp(200, { user: { id: user.id, email: user.email }, member });
     }
 
-    // POST /auth/family/create — create a new family
+    // POST /auth/family/create
     if (path === 'auth/family/create' && method === 'POST') {
+      const admin = getAdmin();
       const invite_code = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const { data: family, error: fErr } = await adminSupabase
-        .from('families')
-        .insert({ name: body.family_name, invite_code, created_by: user.id })
-        .select().single();
+      const { data: family, error: fErr } = await admin.from('families')
+        .insert({ name: body.family_name, invite_code, created_by: user.id }).select().single();
       if (fErr) throw fErr;
 
-      const { error: mErr } = await adminSupabase
-        .from('family_members')
+      const { error: mErr } = await admin.from('family_members')
         .insert({ family_id: family.id, user_id: user.id, display_name: body.display_name, role: 'admin' });
       if (mErr) throw mErr;
 
-      // Pre-populate default Indian grocery items
-      const defaultItems = [
-        {name:'Rice (Basmati)',category:'Produce',quantity:5},{name:'Wheat Flour (Atta)',category:'Produce',quantity:5},
-        {name:'Toor Dal',category:'Produce',quantity:1},{name:'Moong Dal',category:'Produce',quantity:1},
-        {name:'Chana Dal',category:'Produce',quantity:1},{name:'Urad Dal',category:'Produce',quantity:1},
-        {name:'Masoor Dal',category:'Produce',quantity:1},{name:'Rajma',category:'Produce',quantity:1},
-        {name:'Chole (Chickpeas)',category:'Produce',quantity:1},{name:'Poha',category:'Produce',quantity:1},
-        {name:'Suji (Semolina)',category:'Produce',quantity:1},{name:'Besan (Gram Flour)',category:'Produce',quantity:1},
-        {name:'Onions',category:'Produce',quantity:2},{name:'Tomatoes',category:'Produce',quantity:1},
-        {name:'Potatoes',category:'Produce',quantity:2},{name:'Green Chillies',category:'Produce',quantity:1},
-        {name:'Ginger',category:'Produce',quantity:1},{name:'Garlic',category:'Produce',quantity:1},
-        {name:'Coriander Leaves',category:'Produce',quantity:1},{name:'Curry Leaves',category:'Produce',quantity:1},
-        {name:'Spinach (Palak)',category:'Produce',quantity:1},{name:'Cauliflower',category:'Produce',quantity:1},
-        {name:'Capsicum',category:'Produce',quantity:1},{name:'Okra (Bhindi)',category:'Produce',quantity:1},
-        {name:'Milk',category:'Dairy',quantity:2},{name:'Curd (Dahi)',category:'Dairy',quantity:1},
-        {name:'Paneer',category:'Dairy',quantity:1},{name:'Butter',category:'Dairy',quantity:1},
-        {name:'Ghee',category:'Dairy',quantity:1},
-        {name:'Turmeric Powder (Haldi)',category:'Other',quantity:1},{name:'Red Chilli Powder',category:'Other',quantity:1},
-        {name:'Coriander Powder',category:'Other',quantity:1},{name:'Cumin Powder (Jeera)',category:'Other',quantity:1},
-        {name:'Garam Masala',category:'Other',quantity:1},{name:'Cumin Seeds',category:'Other',quantity:1},
-        {name:'Mustard Seeds',category:'Other',quantity:1},{name:'Hing (Asafoetida)',category:'Other',quantity:1},
-        {name:'Salt',category:'Other',quantity:1},{name:'Sugar',category:'Other',quantity:1},
-        {name:'Mustard Oil',category:'Other',quantity:1},{name:'Sunflower Oil',category:'Other',quantity:1},
-        {name:'Tamarind (Imli)',category:'Other',quantity:1},{name:'Jaggery (Gud)',category:'Other',quantity:1},
-        {name:'Tea (Chai Patti)',category:'Beverages',quantity:1},{name:'Coffee Powder',category:'Beverages',quantity:1},
-        {name:'Biscuits',category:'Snacks',quantity:2},{name:'Maggi Noodles',category:'Snacks',quantity:4},
-        {name:'Papad',category:'Snacks',quantity:1},{name:'Pickle (Achar)',category:'Snacks',quantity:1},
-        {name:'Cashews (Kaju)',category:'Snacks',quantity:1},{name:'Almonds (Badam)',category:'Snacks',quantity:1},
-        {name:'Bread',category:'Bakery',quantity:1},{name:'Peas',category:'Frozen',quantity:1},
-        {name:'Dish Soap (Vim)',category:'Household',quantity:1},{name:'Detergent',category:'Household',quantity:1},
-        {name:'Floor Cleaner',category:'Household',quantity:1},{name:'Dustbin Bags',category:'Household',quantity:1},
-        {name:'Soap',category:'Personal Care',quantity:2},{name:'Shampoo',category:'Personal Care',quantity:1},
-        {name:'Toothpaste',category:'Personal Care',quantity:1}
-      ];
-
-      const rows = defaultItems.map((it, i) => ({
+      const rows = DEFAULT_ITEMS.map((it, i) => ({
         ...it, family_id: family.id, in_stock: true, sort_order: i + 1, added_by: body.display_name
       }));
-      await adminSupabase.from('items').insert(rows);
+      await admin.from('items').insert(rows);
 
       return resp(201, { family });
     }
 
-    // POST /auth/family/join — join via invite code
+    // POST /auth/family/join
     if (path === 'auth/family/join' && method === 'POST') {
-      const { data: family, error: fErr } = await adminSupabase
-        .from('families')
-        .select('id, name, invite_code')
-        .eq('invite_code', body.invite_code.toUpperCase())
-        .single();
+      const admin = getAdmin();
+      const { data: family, error: fErr } = await admin.from('families')
+        .select('id, name, invite_code').eq('invite_code', body.invite_code.toUpperCase()).single();
       if (fErr || !family) return resp(404, { error: 'Invalid invite code' });
 
-      const { data: existing } = await adminSupabase
-        .from('family_members')
-        .select('id')
-        .eq('family_id', family.id)
-        .eq('user_id', user.id)
-        .single();
+      const { data: existing } = await admin.from('family_members')
+        .select('id').eq('family_id', family.id).eq('user_id', user.id).single();
       if (existing) return resp(400, { error: 'Already a member' });
 
-      const { error: mErr } = await adminSupabase
-        .from('family_members')
+      const { error: mErr } = await admin.from('family_members')
         .insert({ family_id: family.id, user_id: user.id, display_name: body.display_name, role: 'member' });
       if (mErr) throw mErr;
 
       return resp(200, { family });
     }
 
-    // GET /auth/family/members — list family members
+    // GET /auth/family/members
     if (path === 'auth/family/members' && method === 'GET') {
-      const { data: me } = await supabase
-        .from('family_members').select('family_id').eq('user_id', user.id).single();
+      const { data: me } = await supabase.from('family_members').select('family_id').eq('user_id', user.id).single();
       if (!me) return resp(404, { error: 'Not in a family' });
-
-      const { data, error } = await supabase
-        .from('family_members')
-        .select('display_name, role, joined_at')
-        .eq('family_id', me.family_id)
-        .order('joined_at');
+      const { data, error } = await supabase.from('family_members')
+        .select('display_name, role, joined_at').eq('family_id', me.family_id).order('joined_at');
       if (error) throw error;
       return resp(200, data);
     }
 
-    // ── ITEMS ENDPOINTS ──────────────────────────────────────────────
-
-    // Get current user's family_id for all item operations
-    const { data: memberData } = await supabase
-      .from('family_members').select('family_id, display_name').eq('user_id', user.id).single();
+    // Get family_id for item operations
+    const { data: memberData } = await supabase.from('family_members')
+      .select('family_id, display_name').eq('user_id', user.id).single();
     if (!memberData) return resp(403, { error: 'Not in a family' });
 
     const family_id = memberData.family_id;
@@ -160,10 +140,8 @@ exports.handler = async (event) => {
 
     // GET /items
     if (path === 'items' && method === 'GET') {
-      const { data, error } = await supabase
-        .from('items').select('*')
-        .eq('family_id', family_id)
-        .order('sort_order', { ascending: true });
+      const { data, error } = await supabase.from('items').select('*')
+        .eq('family_id', family_id).order('sort_order', { ascending: true });
       if (error) throw error;
       return resp(200, data);
     }
@@ -174,9 +152,8 @@ exports.handler = async (event) => {
         .eq('family_id', family_id).order('sort_order', { ascending: false }).limit(1);
       const nextOrder = (max && max.length > 0 ? max[0].sort_order : 0) + 1;
       const { data, error } = await supabase.from('items').insert({
-        name: body.name, category: body.category || 'Other',
-        quantity: body.quantity || 1, in_stock: true,
-        sort_order: nextOrder, family_id, added_by: display_name
+        name: body.name, category: body.category || 'Other', quantity: body.quantity || 1,
+        in_stock: true, sort_order: nextOrder, family_id, added_by: display_name
       }).select();
       if (error) throw error;
       return resp(201, data[0]);
@@ -228,8 +205,7 @@ exports.handler = async (event) => {
     const delMatch = path.match(/^items\/(\d+)$/);
     if (delMatch && method === 'DELETE') {
       const id = parseInt(delMatch[1]);
-      const { error } = await supabase.from('items').delete()
-        .eq('id', id).eq('family_id', family_id);
+      const { error } = await supabase.from('items').delete().eq('id', id).eq('family_id', family_id);
       if (error) throw error;
       return resp(200, { success: true });
     }
