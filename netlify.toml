@@ -6,3 +6,11 @@
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
+  force = true
+  headers = {Access-Control-Allow-Headers = "Content-Type, Authorization"}
+
+# Auth callback redirect
+[[redirects]]
+  from = "/auth/callback"
+  to = "/auth.html"
+  status = 200
