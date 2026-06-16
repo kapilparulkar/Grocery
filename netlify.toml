@@ -8,7 +8,6 @@
   status = 200
   force = true
 
-# Auth callback redirect
 [[redirects]]
   from = "/auth/callback"
   to = "/auth.html"
