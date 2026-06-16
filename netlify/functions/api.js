@@ -65,6 +65,46 @@ exports.handler = async (event) => {
         .insert({ family_id: family.id, user_id: user.id, display_name: body.display_name, role: 'admin' });
       if (mErr) throw mErr;
 
+      // Pre-populate default Indian grocery items
+      const defaultItems = [
+        {name:'Rice (Basmati)',category:'Produce',quantity:5},{name:'Wheat Flour (Atta)',category:'Produce',quantity:5},
+        {name:'Toor Dal',category:'Produce',quantity:1},{name:'Moong Dal',category:'Produce',quantity:1},
+        {name:'Chana Dal',category:'Produce',quantity:1},{name:'Urad Dal',category:'Produce',quantity:1},
+        {name:'Masoor Dal',category:'Produce',quantity:1},{name:'Rajma',category:'Produce',quantity:1},
+        {name:'Chole (Chickpeas)',category:'Produce',quantity:1},{name:'Poha',category:'Produce',quantity:1},
+        {name:'Suji (Semolina)',category:'Produce',quantity:1},{name:'Besan (Gram Flour)',category:'Produce',quantity:1},
+        {name:'Onions',category:'Produce',quantity:2},{name:'Tomatoes',category:'Produce',quantity:1},
+        {name:'Potatoes',category:'Produce',quantity:2},{name:'Green Chillies',category:'Produce',quantity:1},
+        {name:'Ginger',category:'Produce',quantity:1},{name:'Garlic',category:'Produce',quantity:1},
+        {name:'Coriander Leaves',category:'Produce',quantity:1},{name:'Curry Leaves',category:'Produce',quantity:1},
+        {name:'Spinach (Palak)',category:'Produce',quantity:1},{name:'Cauliflower',category:'Produce',quantity:1},
+        {name:'Capsicum',category:'Produce',quantity:1},{name:'Okra (Bhindi)',category:'Produce',quantity:1},
+        {name:'Milk',category:'Dairy',quantity:2},{name:'Curd (Dahi)',category:'Dairy',quantity:1},
+        {name:'Paneer',category:'Dairy',quantity:1},{name:'Butter',category:'Dairy',quantity:1},
+        {name:'Ghee',category:'Dairy',quantity:1},
+        {name:'Turmeric Powder (Haldi)',category:'Other',quantity:1},{name:'Red Chilli Powder',category:'Other',quantity:1},
+        {name:'Coriander Powder',category:'Other',quantity:1},{name:'Cumin Powder (Jeera)',category:'Other',quantity:1},
+        {name:'Garam Masala',category:'Other',quantity:1},{name:'Cumin Seeds',category:'Other',quantity:1},
+        {name:'Mustard Seeds',category:'Other',quantity:1},{name:'Hing (Asafoetida)',category:'Other',quantity:1},
+        {name:'Salt',category:'Other',quantity:1},{name:'Sugar',category:'Other',quantity:1},
+        {name:'Mustard Oil',category:'Other',quantity:1},{name:'Sunflower Oil',category:'Other',quantity:1},
+        {name:'Tamarind (Imli)',category:'Other',quantity:1},{name:'Jaggery (Gud)',category:'Other',quantity:1},
+        {name:'Tea (Chai Patti)',category:'Beverages',quantity:1},{name:'Coffee Powder',category:'Beverages',quantity:1},
+        {name:'Biscuits',category:'Snacks',quantity:2},{name:'Maggi Noodles',category:'Snacks',quantity:4},
+        {name:'Papad',category:'Snacks',quantity:1},{name:'Pickle (Achar)',category:'Snacks',quantity:1},
+        {name:'Cashews (Kaju)',category:'Snacks',quantity:1},{name:'Almonds (Badam)',category:'Snacks',quantity:1},
+        {name:'Bread',category:'Bakery',quantity:1},{name:'Peas',category:'Frozen',quantity:1},
+        {name:'Dish Soap (Vim)',category:'Household',quantity:1},{name:'Detergent',category:'Household',quantity:1},
+        {name:'Floor Cleaner',category:'Household',quantity:1},{name:'Dustbin Bags',category:'Household',quantity:1},
+        {name:'Soap',category:'Personal Care',quantity:2},{name:'Shampoo',category:'Personal Care',quantity:1},
+        {name:'Toothpaste',category:'Personal Care',quantity:1}
+      ];
+
+      const rows = defaultItems.map((it, i) => ({
+        ...it, family_id: family.id, in_stock: true, sort_order: i + 1, added_by: body.display_name
+      }));
+      await adminSupabase.from('items').insert(rows);
+
       return resp(201, { family });
     }
 
