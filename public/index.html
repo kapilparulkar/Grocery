@@ -121,6 +121,9 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 .offline-bar.show { display: block; }
 .voice-active { animation: shake .5s ease infinite; background: var(--red) !important; }
 
+.page-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+.page-tab { flex: 1; padding: 9px; border: none; border-radius: 8px; background: var(--card); color: var(--text); font-size: .85rem; cursor: pointer; border: 1px solid var(--border); transition: all .2s; }
+.page-tab.active { background: var(--green); color: #fff; border-color: var(--green); }
 .swipe-bg { position: absolute; top: 0; bottom: 0; width: 100%; display: flex; align-items: center; padding: 0 16px; font-size: .8rem; color: #fff; font-weight: 600; pointer-events: none; opacity: 0; transition: opacity .2s; }
 .swipe-bg.left { right: 0; justify-content: flex-end; background: linear-gradient(to left, var(--orange), transparent); }
 .swipe-bg.right { left: 0; justify-content: flex-start; background: linear-gradient(to right, var(--green), transparent); }
@@ -165,6 +168,11 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 
 <div class="offline-bar" id="offline-bar">📡 Offline — changes will sync when back online</div>
 <div class="notif-bar" id="notif"></div>
+
+<div class="page-tabs">
+  <button class="page-tab active" id="tab-btn-home" onclick="switchView('home')">📋 List</button>
+  <button class="page-tab" id="tab-btn-shop" onclick="switchView('shop')">🛖 Shop</button>
+</div>
 
 <!-- HOME VIEW -->
 <div id="view-home">
@@ -314,6 +322,17 @@ function closeModal(id) { document.getElementById(id).classList.remove('show'); 
 function selectCat(cat) { haptic(); activeCat = cat; render(); }
 
 // Drawer
+function switchView(view) {
+  const isHome = view === 'home';
+  document.getElementById('view-home').style.display = isHome ? '' : 'none';
+  document.getElementById('view-shop').style.display = isHome ? 'none' : '';
+  document.getElementById('tab-btn-home').classList.toggle('active', isHome);
+  document.getElementById('tab-btn-shop').classList.toggle('active', !isHome);
+  document.getElementById('menu-home').classList.toggle('active-view', isHome);
+  document.getElementById('menu-shop').classList.toggle('active-view', !isHome);
+  if (!isHome) renderShop();
+}
+
 function openDrawer() {
   haptic();
   document.getElementById('drawer').classList.add('open');
@@ -329,16 +348,9 @@ function closeDrawer() {
 function drawerAction(action) {
   closeDrawer();
   if (action === 'home') {
-    document.getElementById('view-home').style.display = '';
-    document.getElementById('view-shop').style.display = 'none';
-    document.getElementById('menu-home').classList.add('active-view');
-    document.getElementById('menu-shop').classList.remove('active-view');
+    switchView('home');
   } else if (action === 'shop') {
-    document.getElementById('view-home').style.display = 'none';
-    document.getElementById('view-shop').style.display = '';
-    document.getElementById('menu-shop').classList.add('active-view');
-    document.getElementById('menu-home').classList.remove('active-view');
-    renderShop();
+    switchView('shop');
   } else if (action === 'add') {
     document.getElementById('addModal').classList.add('show');
     setTimeout(() => document.getElementById('inp-name').focus(), 100);
