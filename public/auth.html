@@ -191,7 +191,7 @@ async function createFamily() {
     document.getElementById('new-invite-code').textContent = data.family.invite_code;
     showScreen('screen-family-created');
   } else {
-    showError('create-error', 'Failed to create family. Try again.');
+    showError('create-error', data?.error || 'Failed to create family. Try again.');
   }
 }
 
