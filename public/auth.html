@@ -103,8 +103,8 @@ input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radi
 </div>
 
 <script>
-const SUPABASE_URL = '__SUPABASE_URL__';
-const SUPABASE_KEY = '__SUPABASE_ANON_KEY__';
+const SUPABASE_URL = 'https://hgnyfhilnbcoemxfpozm.supabase.co'; // 👈 paste your Supabase project URL here
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbnlmaGlsbmJjb2VteGZwb3ptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MTYyNTgsImV4cCI6MjA5NzA5MjI1OH0.o8ZTGLDH0be9FAkRkKYcm-MNEOZ44GG1uZuKuZqQLj4'; // 👈 paste your Supabase anon key here
 
 let sb = null;
 let currentUser = null;
@@ -126,26 +126,44 @@ function showError(id, msg) {
 // Load Supabase then init
 const script = document.createElement('script');
 script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+
+// Timeout fallback — if CDN doesn't load in 5s, show login anyway
+const loadTimeout = setTimeout(() => showScreen('screen-login'), 5000);
+
+script.onerror = () => { clearTimeout(loadTimeout); showScreen('screen-login'); };
+
 script.onload = async () => {
-  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  clearTimeout(loadTimeout);
 
-  // Handle OAuth redirect
-  const { data: { session } } = await sb.auth.getSession();
+  // Check placeholders not replaced
+  if (SUPABASE_URL.includes('__') || SUPABASE_KEY.includes('__')) {
+    showScreen('screen-login');
+    showError('login-error', 'App not configured yet. Contact admin.');
+    return;
+  }
 
-  if (session) {
-    currentUser = session.user;
-    localStorage.setItem('sb_token', session.access_token);
-    await checkFamily();
-  } else {
+  try {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { data: { session }, error } = await sb.auth.getSession();
+    if (error) throw error;
+    if (session) {
+      currentUser = session.user;
+      localStorage.setItem('sb_token', session.access_token);
+      await checkFamily();
+    } else {
+      showScreen('screen-login');
+    }
+  } catch(e) {
     showScreen('screen-login');
   }
 };
 document.head.appendChild(script);
 
 async function loginWithGoogle() {
+  if (!sb) { showError('login-error', 'Still loading, please wait...'); return; }
   await sb.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.href }
+    options: { redirectTo: window.location.origin + '/auth.html' }
   });
 }
 
