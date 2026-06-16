@@ -144,6 +144,14 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 .page-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
 .page-tab { flex: 1; padding: 9px; border: none; border-radius: 8px; background: var(--card); color: var(--text); font-size: .85rem; cursor: pointer; border: 1px solid var(--border); transition: all .2s; }
 .page-tab.active { background: var(--green); color: #fff; border-color: var(--green); }
+.family-switcher { display:flex;align-items:center;cursor:pointer;font-size:1rem;font-weight:600;padding:4px 8px;border-radius:8px;transition:background .2s; }
+.family-switcher:hover { background:var(--border); }
+.family-switcher-dropdown { display:none;position:fixed;top:52px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:300;min-width:220px;overflow:hidden; }
+.family-switcher-dropdown.show { display:block; }
+.family-switch-item { display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;font-size:.9rem;border:none;background:none;width:100%;color:var(--text);text-align:left; }
+.family-switch-item:hover { background:var(--bg); }
+.family-switch-item.active { font-weight:600;color:var(--green); }
+.family-switch-item .check { margin-left:auto;color:var(--green); }
 .swipe-bg { position: absolute; top: 0; bottom: 0; width: 100%; display: flex; align-items: center; padding: 0 16px; font-size: .8rem; color: #fff; font-weight: 600; pointer-events: none; opacity: 0; transition: opacity .2s; }
 .swipe-bg.left { right: 0; justify-content: flex-end; background: linear-gradient(to left, var(--orange), transparent); }
 .swipe-bg.right { left: 0; justify-content: flex-start; background: linear-gradient(to right, var(--green), transparent); }
@@ -152,9 +160,13 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 <body>
 <header>
   <button class="hamburger" onclick="openDrawer()">☰</button>
-  <h1>🛒 Grocery List</h1>
+  <div class="family-switcher" onclick="toggleFamilySwitcher()">
+    <span id="active-family-name">🛒 Grocery List</span>
+    <span id="family-caret" style="font-size:.7rem;margin-left:4px">▾</span>
+  </div>
   <div style="width:36px"></div>
 </header>
+<div class="family-switcher-dropdown" id="familySwitcherDropdown"></div>
 
 <!-- DRAWER -->
 <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
@@ -284,6 +296,8 @@ let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
 
 const catOrder = ['Produce','Dairy','Meat','Bakery','Frozen','Beverages','Snacks','Household','Personal Care','Other'];
 let realtimeChannel = null;
+let activeFamilyId = localStorage.getItem('active_family_id') || null;
+let allFamilies = [];
 
 function initRealtime() {}
 
@@ -391,6 +405,8 @@ function drawerAction(action) {
         document.getElementById('inviteModal').classList.add('show');
       }
     });
+  } else if (action === 'add-family') {
+    window.location.href = '/auth.html?add=true';
   } else if (action === 'about') {
     document.getElementById('aboutModal').classList.add('show');
   }
@@ -404,7 +420,9 @@ function toggleDeleteMode() {
 // API with auth token
 function authHeaders(extra) {
   const token = localStorage.getItem('sb_token');
-  return Object.assign({'Content-Type':'application/json','Authorization':'Bearer '+token}, extra||{});
+  const h = {'Content-Type':'application/json','Authorization':'Bearer '+token};
+  if (activeFamilyId) h['X-Family-Id'] = activeFamilyId;
+  return Object.assign(h, extra||{});
 }
 async function api(url, opts) {
   if (!opts) opts = {};
@@ -434,12 +452,66 @@ async function api(url, opts) {
 }
 
 async function load() {
+  // Load families on first load
+  if (allFamilies.length === 0) await loadFamilies();
   const data = await api('/api/items');
   if (data && Array.isArray(data)) {
     items = data;
     lastDataHash = JSON.stringify(data);
     render();
   }
+}
+
+async function loadFamilies() {
+  const d = await api('/api/auth/me');
+  if (d && d.memberships) {
+    allFamilies = d.memberships;
+    if (!activeFamilyId && allFamilies.length > 0) {
+      activeFamilyId = allFamilies[0].family_id;
+      localStorage.setItem('active_family_id', activeFamilyId);
+    }
+    updateFamilyHeader();
+  }
+}
+
+function updateFamilyHeader() {
+  const active = allFamilies.find(f => f.family_id === activeFamilyId) || allFamilies[0];
+  if (active) {
+    document.getElementById('active-family-name').textContent = active.families.name;
+  }
+  // Show caret only if multiple families
+  document.getElementById('family-caret').style.display = allFamilies.length > 1 ? '' : 'none';
+}
+
+function toggleFamilySwitcher() {
+  if (allFamilies.length <= 1) return;
+  const dd = document.getElementById('familySwitcherDropdown');
+  dd.classList.toggle('show');
+  if (dd.classList.contains('show')) {
+    let html = allFamilies.map(f => {
+      const isActive = f.family_id === activeFamilyId;
+      return `<button class="family-switch-item${isActive?' active':''}" onclick="switchFamily('${f.family_id}')">
+        <span>🏠</span>
+        <span>${esc(f.families.name)}</span>
+        ${isActive ? '<span class="check">✓</span>' : ''}
+      </button>`;
+    }).join('');
+    html += `<button class="family-switch-item" onclick="drawerAction('add-family')" style="border-top:1px solid var(--border)">
+      <span>➕</span><span>Add Another Home</span>
+    </button>`;
+    dd.innerHTML = html;
+  }
+}
+
+async function switchFamily(familyId) {
+  activeFamilyId = familyId;
+  localStorage.setItem('active_family_id', familyId);
+  document.getElementById('familySwitcherDropdown').classList.remove('show');
+  updateFamilyHeader();
+  items = [];
+  lastDataHash = '';
+  await load();
+  showNotif('Switched to ' + (allFamilies.find(f => f.family_id === familyId)?.families.name || 'family'));
 }
 
 function render() {
@@ -698,6 +770,13 @@ function exportPDF() {
 
 // Keyboard - add item on Enter
 document.getElementById('inp-name').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
+
+// Close family switcher when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.family-switcher') && !e.target.closest('.family-switcher-dropdown')) {
+    document.getElementById('familySwitcherDropdown').classList.remove('show');
+  }
+});
 
 // Swipe support
 let touchStartX = 0, touchItem = null;
