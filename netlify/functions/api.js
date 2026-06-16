@@ -130,10 +130,10 @@ exports.handler = async (event) => {
       return resp(200, data);
     }
 
-    // Get family_id for item operations
-    const { data: memberData } = await supabase.from('family_members')
+    // Get family_id for item operations (use admin to bypass RLS)
+    const { data: memberData, error: memberError } = await getAdmin().from('family_members')
       .select('family_id, display_name').eq('user_id', user.id).single();
-    if (!memberData) return resp(403, { error: 'Not in a family' });
+    if (!memberData) return resp(403, { error: 'Not in a family', detail: memberError?.message, uid: user.id });
 
     const family_id = memberData.family_id;
     const display_name = memberData.display_name;
