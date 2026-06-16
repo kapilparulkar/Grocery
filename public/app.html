@@ -727,31 +727,21 @@ updateOfflineStatus();
 
 // Refresh token via Supabase then load
 (function initApp() {
+  const SURL = 'https://hgnyfhilnbcoemxfpozm.supabase.co';
+  const SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbnlmaGlsbmJjb2VteGZwb3ptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MTYyNTgsImV4cCI6MjA5NzA5MjI1OH0.o8ZTGLDH0be9FAkRkKYcm-MNEOZ44GG1uZuKuZqQLj4';
   const script = document.createElement('script');
   script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
   script.onload = async () => {
-    const SURL = 'https://hgnyfhilnbcoemxfpozm.supabase.co'; // paste your Supabase URL
-    const SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbnlmaGlsbmJjb2VteGZwb3ptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MTYyNTgsImV4cCI6MjA5NzA5MjI1OH0.o8ZTGLDH0be9FAkRkKYcm-MNEOZ44GG1uZuKuZqQLj4'; // paste your Supabase anon key
-    if (SURL && SKEY) {
-      try {
-        const { createClient } = supabase;
-        const sbClient = createClient(SURL, SKEY);
-        const { data: { session } } = await sbClient.auth.getSession();
-        if (session) {
-          localStorage.setItem('sb_token', session.access_token);
-          load();
-          realtimeChannel = createClient(SURL, SKEY)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, (payload) => {
-              if (payload.eventType === 'INSERT') { if (!items.find(i => i.id === payload.new.id)) { items.push(payload.new); render(); } }
-              else if (payload.eventType === 'UPDATE') { const idx = items.findIndex(i => i.id === payload.new.id); if (idx >= 0) { items[idx] = payload.new; render(); } }
-              else if (payload.eventType === 'DELETE') { items = items.filter(i => i.id !== payload.old.id); render(); }
-            }).subscribe();
-        } else {
-          window.location.href = '/auth.html';
-          return;
-        }
-      } catch(e) { console.error('Supabase init error:', e); }
-    }
+    try {
+      const sbClient = window.supabase.createClient(SURL, SKEY);
+      const { data: { session } } = await sbClient.auth.getSession();
+      if (session) {
+        localStorage.setItem('sb_token', session.access_token);
+        load();
+      } else {
+        window.location.href = '/auth.html';
+      }
+    } catch(e) { console.error('Init error:', e); load(); }
   };
   script.onerror = () => load();
   document.head.appendChild(script);
