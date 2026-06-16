@@ -435,7 +435,7 @@ async function api(url, opts) {
 
 async function load() {
   const data = await api('/api/items');
-  if (data) {
+  if (data && Array.isArray(data)) {
     items = data;
     lastDataHash = JSON.stringify(data);
     render();
@@ -634,7 +634,7 @@ let lastDataHash = '';
 setInterval(async () => {
   if (realtimeChannel) return;
   const data = await api('/api/items');
-  if (!data) return;
+  if (!data || !Array.isArray(data)) return;
   const hash = JSON.stringify(data);
   if (hash !== lastDataHash) {
     lastDataHash = hash;
