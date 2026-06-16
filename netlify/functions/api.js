@@ -4,7 +4,7 @@ const headers = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization'
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Family-Id'
 };
 
 function getSupabase(token) {
@@ -71,15 +71,19 @@ exports.handler = async (event) => {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) return resp(401, { error: 'Invalid token' });
 
+  // Active family from header (sent by frontend when user switches family)
+  const requestedFamilyId = event.headers['x-family-id'];
+
   try {
 
-    // GET /auth/me
+    // GET /auth/me — returns user + all families they belong to
     if (path === 'auth/me' && method === 'GET') {
-      const { data: member } = await supabase
+      const { data: memberships } = await getAdmin()
         .from('family_members')
         .select('display_name, role, family_id, families(id, name, invite_code)')
-        .eq('user_id', user.id).single();
-      return resp(200, { user: { id: user.id, email: user.email }, member });
+        .eq('user_id', user.id)
+        .order('joined_at', { ascending: true });
+      return resp(200, { user: { id: user.id, email: user.email }, memberships: memberships || [] });
     }
 
     // POST /auth/family/create
@@ -122,25 +126,32 @@ exports.handler = async (event) => {
 
     // GET /auth/family/members
     if (path === 'auth/family/members' && method === 'GET') {
-      const { data: me } = await supabase.from('family_members').select('family_id').eq('user_id', user.id).single();
-      if (!me) return resp(404, { error: 'Not in a family' });
-      const { data, error } = await supabase.from('family_members')
-        .select('display_name, role, joined_at').eq('family_id', me.family_id).order('joined_at');
+      const fid = requestedFamilyId;
+      if (!fid) return resp(400, { error: 'X-Family-Id header required' });
+      const { data, error } = await getAdmin().from('family_members')
+        .select('display_name, role, joined_at').eq('family_id', fid).order('joined_at');
       if (error) throw error;
       return resp(200, data);
     }
 
-    // Get family_id for item operations (use admin to bypass RLS)
-    const { data: memberData, error: memberError } = await getAdmin().from('family_members')
-      .select('family_id, display_name').eq('user_id', user.id).single();
-    if (!memberData) return resp(403, { error: 'Not in a family', detail: memberError?.message, uid: user.id });
+    // ── ITEMS — resolve active family ────────────────────────────────
+    const { data: allMemberships } = await getAdmin().from('family_members')
+      .select('family_id, display_name').eq('user_id', user.id).order('joined_at', { ascending: true });
 
-    const family_id = memberData.family_id;
-    const display_name = memberData.display_name;
+    if (!allMemberships || allMemberships.length === 0)
+      return resp(403, { error: 'Not in a family' });
+
+    // Use requested family if user is a member, else fall back to first
+    const activeMembership = requestedFamilyId
+      ? allMemberships.find(m => m.family_id === requestedFamilyId) || allMemberships[0]
+      : allMemberships[0];
+
+    const family_id = activeMembership.family_id;
+    const display_name = activeMembership.display_name;
 
     // GET /items
     if (path === 'items' && method === 'GET') {
-      const { data, error } = await supabase.from('items').select('*')
+      const { data, error } = await getAdmin().from('items').select('*')
         .eq('family_id', family_id).order('sort_order', { ascending: true });
       if (error) throw error;
       return resp(200, data);
@@ -148,10 +159,10 @@ exports.handler = async (event) => {
 
     // POST /items
     if (path === 'items' && method === 'POST') {
-      const { data: max } = await supabase.from('items').select('sort_order')
+      const { data: max } = await getAdmin().from('items').select('sort_order')
         .eq('family_id', family_id).order('sort_order', { ascending: false }).limit(1);
       const nextOrder = (max && max.length > 0 ? max[0].sort_order : 0) + 1;
-      const { data, error } = await supabase.from('items').insert({
+      const { data, error } = await getAdmin().from('items').insert({
         name: body.name, category: body.category || 'Other', quantity: body.quantity || 1,
         in_stock: true, sort_order: nextOrder, family_id, added_by: display_name
       }).select();
@@ -161,7 +172,7 @@ exports.handler = async (event) => {
 
     // POST /items/bulk
     if (path === 'items/bulk' && method === 'POST') {
-      const { data: max } = await supabase.from('items').select('sort_order')
+      const { data: max } = await getAdmin().from('items').select('sort_order')
         .eq('family_id', family_id).order('sort_order', { ascending: false }).limit(1);
       let nextOrder = (max && max.length > 0 ? max[0].sort_order : 0) + 1;
       const lines = body.items.split('\n').map(l => l.trim().replace(/^-\s*/, '')).filter(Boolean);
@@ -169,7 +180,7 @@ exports.handler = async (event) => {
         name, category: body.category || 'Other', quantity: 1,
         in_stock: true, sort_order: nextOrder++, family_id, added_by: display_name
       }));
-      const { data, error } = await supabase.from('items').insert(rows).select();
+      const { data, error } = await getAdmin().from('items').insert(rows).select();
       if (error) throw error;
       return resp(201, data);
     }
@@ -183,7 +194,7 @@ exports.handler = async (event) => {
       if (body.category !== undefined) updates.category = body.category;
       if (body.quantity !== undefined) updates.quantity = body.quantity;
       if (body.in_stock !== undefined) updates.in_stock = body.in_stock;
-      const { data, error } = await supabase.from('items').update(updates)
+      const { data, error } = await getAdmin().from('items').update(updates)
         .eq('id', id).eq('family_id', family_id).select();
       if (error) throw error;
       return resp(200, data[0]);
@@ -193,9 +204,9 @@ exports.handler = async (event) => {
     const toggleMatch = path.match(/^items\/(\d+)\/toggle$/);
     if (toggleMatch && method === 'POST') {
       const id = parseInt(toggleMatch[1]);
-      const { data: item } = await supabase.from('items').select('in_stock')
+      const { data: item } = await getAdmin().from('items').select('in_stock')
         .eq('id', id).eq('family_id', family_id).single();
-      const { data, error } = await supabase.from('items').update({ in_stock: !item.in_stock })
+      const { data, error } = await getAdmin().from('items').update({ in_stock: !item.in_stock })
         .eq('id', id).eq('family_id', family_id).select();
       if (error) throw error;
       return resp(200, data[0]);
@@ -205,14 +216,14 @@ exports.handler = async (event) => {
     const delMatch = path.match(/^items\/(\d+)$/);
     if (delMatch && method === 'DELETE') {
       const id = parseInt(delMatch[1]);
-      const { error } = await supabase.from('items').delete().eq('id', id).eq('family_id', family_id);
+      const { error } = await getAdmin().from('items').delete().eq('id', id).eq('family_id', family_id);
       if (error) throw error;
       return resp(200, { success: true });
     }
 
     // POST /items/bulk-restock
     if (path === 'items/bulk-restock' && method === 'POST') {
-      const { error } = await supabase.from('items').update({ in_stock: true })
+      const { error } = await getAdmin().from('items').update({ in_stock: true })
         .in('id', body.ids).eq('family_id', family_id);
       if (error) throw error;
       return resp(200, { success: true });
