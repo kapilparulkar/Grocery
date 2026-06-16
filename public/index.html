@@ -43,6 +43,12 @@ h1 { font-size: 1.4rem; }
 .btn-add { background: var(--green); }
 .btn-voice { background: var(--blue); }
 .btn-bulk { background: var(--orange); }
+.btn-menu { background: #9C27B0; }
+.menu-dropdown { position: absolute; top: 100%; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.15); z-index: 100; display: none; min-width: 160px; overflow: hidden; }
+.menu-dropdown.show { display: block; }
+.menu-dropdown button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 16px; border: none; background: none; color: var(--text); font-size: .9rem; cursor: pointer; text-align: left; }
+.menu-dropdown button:hover { background: var(--border); }
+.menu-wrap { position: relative; }
 
 .category-group { margin-bottom: 16px; animation: slideIn .3s ease; }
 .category-title { font-size: .8rem; color: var(--muted); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
@@ -63,8 +69,6 @@ h1 { font-size: 1.4rem; }
 .item.out .btn-toggle { background: var(--green); }
 .btn-del { background: var(--red); color: #fff; display: none; }
 .delete-mode .item .btn-del { display: inline-block; }
-.btn-del-mode { background: var(--red); }
-.btn-del-mode.active { background: #b71c1c; box-shadow: 0 0 0 2px var(--red); }
 
 .toast { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: .9rem; z-index: 999; display: none; align-items: center; gap: 10px; animation: slideIn .3s ease; }
 .toast.show { display: flex; }
@@ -127,10 +131,15 @@ h1 { font-size: 1.4rem; }
     </select>
   </div>
   <div class="add-btns">
-    <button class="btn-add" onclick="addItem()">➕ Add</button>
-    <button class="btn-voice" id="voiceBtn" onclick="voiceInput()">🎤 Voice</button>
-    <button class="btn-bulk" onclick="openBulk()">📝 Bulk</button>
-    <button class="btn-del-mode" id="delBtn" onclick="toggleDeleteMode()">🗑️ Delete</button>
+    <div class="menu-wrap">
+      <button class="btn-menu" onclick="toggleMenu()">⚙️ More</button>
+      <div class="menu-dropdown" id="menuDropdown">
+        <button onclick="menuAction('add')">➕ Add Item</button>
+        <button onclick="menuAction('voice')">🎤 Voice Input</button>
+        <button onclick="menuAction('bulk')">📝 Bulk Add</button>
+        <button onclick="menuAction('delete')">🗑️ Delete Mode</button>
+      </div>
+    </div>
   </div>
   <div id="list"></div>
 </div>
@@ -258,10 +267,33 @@ function selectCat(cat) { haptic(); activeCat = cat; render(); }
 function toggleDeleteMode() {
   haptic();
   const list = document.getElementById('tab-list');
-  const btn = document.getElementById('delBtn');
   list.classList.toggle('delete-mode');
-  btn.classList.toggle('active');
 }
+
+function toggleMenu() {
+  haptic();
+  document.getElementById('menuDropdown').classList.toggle('show');
+}
+
+function menuAction(action) {
+  document.getElementById('menuDropdown').classList.remove('show');
+  if (action === 'add') {
+    document.getElementById('inp-name').focus();
+  } else if (action === 'voice') {
+    voiceInput();
+  } else if (action === 'bulk') {
+    openBulk();
+  } else if (action === 'delete') {
+    toggleDeleteMode();
+  }
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.menu-wrap')) {
+    document.getElementById('menuDropdown').classList.remove('show');
+  }
+});
 
 // API with offline queue support
 async function api(url, opts) {
@@ -414,7 +446,7 @@ async function bulkAdd() {
 // Voice
 function voiceInput() {
   if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) { showNotif('⚠️ Voice not supported'); return; }
-  const btn = document.getElementById('voiceBtn');
+  const btn = document.querySelector('.btn-menu');
   if (recognition) { recognition.stop(); return; }
   haptic('medium');
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -550,7 +582,7 @@ function exportPDF() {
   w.print();
 }
 
-// Keyboard
+// Keyboard - add item on Enter
 document.getElementById('inp-name').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
 
 // Swipe support
