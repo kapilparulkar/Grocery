@@ -54,13 +54,13 @@ exports.handler = async (event) => {
     // POST /auth/family/create — create a new family
     if (path === 'auth/family/create' && method === 'POST') {
       const invite_code = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const { data: family, error: fErr } = await supabase
+      const { data: family, error: fErr } = await adminSupabase
         .from('families')
         .insert({ name: body.family_name, invite_code, created_by: user.id })
         .select().single();
       if (fErr) throw fErr;
 
-      const { error: mErr } = await supabase
+      const { error: mErr } = await adminSupabase
         .from('family_members')
         .insert({ family_id: family.id, user_id: user.id, display_name: body.display_name, role: 'admin' });
       if (mErr) throw mErr;
@@ -70,7 +70,6 @@ exports.handler = async (event) => {
 
     // POST /auth/family/join — join via invite code
     if (path === 'auth/family/join' && method === 'POST') {
-      // Use admin client to find family by invite code (bypasses RLS)
       const { data: family, error: fErr } = await adminSupabase
         .from('families')
         .select('id, name, invite_code')
@@ -78,8 +77,7 @@ exports.handler = async (event) => {
         .single();
       if (fErr || !family) return resp(404, { error: 'Invalid invite code' });
 
-      // Check not already a member
-      const { data: existing } = await supabase
+      const { data: existing } = await adminSupabase
         .from('family_members')
         .select('id')
         .eq('family_id', family.id)
@@ -87,7 +85,7 @@ exports.handler = async (event) => {
         .single();
       if (existing) return resp(400, { error: 'Already a member' });
 
-      const { error: mErr } = await supabase
+      const { error: mErr } = await adminSupabase
         .from('family_members')
         .insert({ family_id: family.id, user_id: user.id, display_name: body.display_name, role: 'member' });
       if (mErr) throw mErr;
