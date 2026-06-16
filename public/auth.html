@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.json">
+<title>Grocery List</title>
+<style>
+:root { --bg: #f5f5f5; --card: #fff; --text: #333; --muted: #666; --border: #ddd; --green: #4CAF50; --red: #f44336; }
+[data-theme="dark"] { --bg: #1a1a1a; --card: #2d2d2d; --text: #eee; --muted: #aaa; --border: #444; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.screen { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 360px; text-align: center; }
+.screen.show { display: flex; }
+.logo { font-size: 4rem; margin-bottom: 12px; }
+.title { font-size: 1.6rem; font-weight: 700; margin-bottom: 6px; }
+.sub { font-size: .9rem; color: var(--muted); margin-bottom: 36px; }
+.btn-google { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 14px 20px; background: #fff; color: #333; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+.btn-google img { width: 20px; height: 20px; }
+.options { display: flex; gap: 12px; width: 100%; margin-bottom: 20px; }
+.option { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 10px; background: var(--card); border: 2px solid var(--border); border-radius: 12px; cursor: pointer; transition: border-color .2s; }
+.option:hover { border-color: var(--green); }
+.option .icon { font-size: 1.8rem; }
+.option .label { font-size: .85rem; font-weight: 600; }
+.option .desc { font-size: .72rem; color: var(--muted); }
+input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; background: var(--bg); color: var(--text); margin-bottom: 10px; }
+.btn { width: 100%; padding: 13px; background: var(--green); color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; margin-bottom: 8px; }
+.btn-sec { width: 100%; padding: 12px; background: none; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; font-size: .9rem; cursor: pointer; }
+.code-display { font-size: 2.2rem; font-weight: 700; letter-spacing: 6px; color: var(--green); background: var(--card); border: 2px dashed var(--green); border-radius: 12px; padding: 16px; margin: 12px 0; width: 100%; }
+.notif { background: var(--red); color: #fff; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: .85rem; display: none; width: 100%; }
+.notif.show { display: block; }
+.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; margin: 20px auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<!-- LOADING -->
+<div class="screen show" id="screen-loading">
+  <div class="logo">🛒</div>
+  <div class="spinner"></div>
+</div>
+
+<!-- LOGIN -->
+<div class="screen" id="screen-login">
+  <div class="logo">🛒</div>
+  <div class="title">Grocery List</div>
+  <div class="sub">Family shopping made easy</div>
+  <div class="notif" id="login-error"></div>
+  <button class="btn-google" onclick="loginWithGoogle()">
+    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
+    Continue with Google
+  </button>
+</div>
+
+<!-- FAMILY CHOOSE -->
+<div class="screen" id="screen-family-choose">
+  <div class="logo">👨‍👩‍👧</div>
+  <div class="title">Welcome!</div>
+  <div class="sub" id="welcome-name">Set up your family list</div>
+  <div class="options">
+    <div class="option" onclick="showScreen('screen-family-create')">
+      <span class="icon">➕</span>
+      <span class="label">Create Family</span>
+      <span class="desc">Start a new list</span>
+    </div>
+    <div class="option" onclick="showScreen('screen-family-join')">
+      <span class="icon">🔑</span>
+      <span class="label">Join Family</span>
+      <span class="desc">Enter invite code</span>
+    </div>
+  </div>
+</div>
+
+<!-- FAMILY CREATE -->
+<div class="screen" id="screen-family-create">
+  <div class="title" style="margin-bottom:20px">➕ Create Family</div>
+  <div class="notif" id="create-error"></div>
+  <input id="inp-family-name" placeholder="Family name (e.g. Sharma Family)">
+  <input id="inp-display-name-create" placeholder="Your name (e.g. Dad, Mum, Priya)">
+  <button class="btn" onclick="createFamily()">Create &amp; Start</button>
+  <button class="btn-sec" onclick="showScreen('screen-family-choose')">← Back</button>
+</div>
+
+<!-- FAMILY JOIN -->
+<div class="screen" id="screen-family-join">
+  <div class="title" style="margin-bottom:20px">🔑 Join Family</div>
+  <div class="notif" id="join-error"></div>
+  <input id="inp-invite-code" placeholder="Invite code (e.g. ABC123)" style="text-transform:uppercase;letter-spacing:3px">
+  <input id="inp-display-name-join" placeholder="Your name (e.g. Dad, Mum, Priya)">
+  <button class="btn" onclick="joinFamily()">Join &amp; Start</button>
+  <button class="btn-sec" onclick="showScreen('screen-family-choose')">← Back</button>
+</div>
+
+<!-- FAMILY CREATED -->
+<div class="screen" id="screen-family-created">
+  <div class="logo">🎉</div>
+  <div class="title">Family Created!</div>
+  <div class="sub">Share this code with your family</div>
+  <div class="code-display" id="new-invite-code"></div>
+  <button class="btn" onclick="copyCode()">📋 Copy Code</button>
+  <button class="btn" style="background:#2196F3" onclick="goToApp()">Go to App →</button>
+</div>
+
+<script>
+const SUPABASE_URL = '__SUPABASE_URL__';
+const SUPABASE_KEY = '__SUPABASE_ANON_KEY__';
+
+let sb = null;
+let currentUser = null;
+
+(function(){ const t = localStorage.getItem('theme'); if(t) document.documentElement.setAttribute('data-theme', t); })();
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('show'));
+  document.getElementById(id).classList.add('show');
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+// Load Supabase then init
+const script = document.createElement('script');
+script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+script.onload = async () => {
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // Handle OAuth redirect
+  const { data: { session } } = await sb.auth.getSession();
+
+  if (session) {
+    currentUser = session.user;
+    localStorage.setItem('sb_token', session.access_token);
+    await checkFamily();
+  } else {
+    showScreen('screen-login');
+  }
+};
+document.head.appendChild(script);
+
+async function loginWithGoogle() {
+  await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.href }
+  });
+}
+
+async function checkFamily() {
+  const res = await callApi('/api/auth/me');
+  if (res && res.member) {
+    goToApp();
+  } else {
+    document.getElementById('welcome-name').textContent =
+      `Hi ${currentUser.user_metadata?.full_name?.split(' ')[0] || 'there'}! Set up your family list`;
+    showScreen('screen-family-choose');
+  }
+}
+
+async function createFamily() {
+  const familyName = document.getElementById('inp-family-name').value.trim();
+  const displayName = document.getElementById('inp-display-name-create').value.trim();
+  if (!familyName) return showError('create-error', 'Please enter a family name');
+  if (!displayName) return showError('create-error', 'Please enter your name');
+  const data = await callApi('/api/auth/family/create', {
+    method: 'POST',
+    body: JSON.stringify({ family_name: familyName, display_name: displayName })
+  });
+  if (data && data.family) {
+    document.getElementById('new-invite-code').textContent = data.family.invite_code;
+    showScreen('screen-family-created');
+  } else {
+    showError('create-error', 'Failed to create family. Try again.');
+  }
+}
+
+async function joinFamily() {
+  const code = document.getElementById('inp-invite-code').value.trim().toUpperCase();
+  const displayName = document.getElementById('inp-display-name-join').value.trim();
+  if (!code) return showError('join-error', 'Please enter an invite code');
+  if (!displayName) return showError('join-error', 'Please enter your name');
+  const data = await callApi('/api/auth/family/join', {
+    method: 'POST',
+    body: JSON.stringify({ invite_code: code, display_name: displayName })
+  });
+  if (data && data.family) {
+    goToApp();
+  } else {
+    showError('join-error', data?.error || 'Invalid invite code. Try again.');
+  }
+}
+
+function copyCode() {
+  const code = document.getElementById('new-invite-code').textContent;
+  navigator.clipboard.writeText(code);
+  document.querySelector('#screen-family-created .btn').textContent = '✅ Copied!';
+  setTimeout(() => document.querySelector('#screen-family-created .btn').textContent = '📋 Copy Code', 2000);
+}
+
+function goToApp() {
+  window.location.href = '/app.html';
+}
+
+async function callApi(url, opts = {}) {
+  const token = localStorage.getItem('sb_token');
+  try {
+    const r = await fetch(url, {
+      ...opts,
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) }
+    });
+    return await r.json();
+  } catch(e) { return null; }
+}
+</script>
+</body>
+</html>
