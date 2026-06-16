@@ -745,13 +745,30 @@ if ('Notification' in window && Notification.permission === 'default') Notificat
 
 // Init
 updateOfflineStatus();
-load();
 
-// Load Supabase async (non-blocking)
-const sbScript = document.createElement('script');
-sbScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-sbScript.onload = () => initRealtime();
-document.head.appendChild(sbScript);
+// Refresh token via Supabase then load
+(function initApp() {
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  script.onload = async () => {
+    const SURL = 'https://hgnyfhilnbcoemxfpozm.supabase.co'; // paste your Supabase URL
+    const SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbnlmaGlsbmJjb2VteGZwb3ptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MTYyNTgsImV4cCI6MjA5NzA5MjI1OH0.o8ZTGLDH0be9FAkRkKYcm-MNEOZ44GG1uZuKuZqQLj4'; // paste your Supabase anon key
+    if (SURL && SKEY) {
+      const sb = window.supabase.createClient(SURL, SKEY);
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) {
+        localStorage.setItem('sb_token', session.access_token);
+      } else {
+        window.location.href = '/auth.html';
+        return;
+      }
+    }
+    load();
+    initRealtime();
+  };
+  script.onerror = () => load();
+  document.head.appendChild(script);
+})();
 </script>
 </body>
 </html>
