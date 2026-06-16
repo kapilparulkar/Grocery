@@ -32,11 +32,7 @@ h1 { font-size: 1.4rem; }
 .cat-tab { padding: 6px 12px; border-radius: 20px; font-size: .75rem; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; white-space: nowrap; transition: all .2s; }
 .cat-tab.active { background: var(--green); color: #fff; border-color: var(--green); }
 .cat-tab .count { opacity: .7; margin-left: 3px; }
-.add-row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
-.add-row input, .add-row select { padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; background: var(--card); color: var(--text); }
-.add-row input[name="name"] { flex: 2; min-width: 100px; }
-.add-row input[name="qty"] { width: 55px; }
-.add-row select { flex: 1; min-width: 90px; }
+
 .add-btns { display: flex; gap: 6px; margin-bottom: 12px; }
 .add-btns button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; color: #fff; transition: transform .1s; }
 .add-btns button:active { transform: scale(.95); }
@@ -123,13 +119,6 @@ h1 { font-size: 1.4rem; }
 <div class="tab-content active" id="tab-list">
   <input class="search" placeholder="Search items..." oninput="render()">
   <div class="cat-tabs" id="cat-tabs"></div>
-  <div class="add-row">
-    <input name="name" id="inp-name" placeholder="Add item..." autocomplete="off">
-    <input name="qty" id="inp-qty" type="number" min="1" value="1" placeholder="#">
-    <select id="inp-cat">
-      <option>Produce</option><option>Dairy</option><option>Meat</option><option>Bakery</option><option>Frozen</option><option>Beverages</option><option>Snacks</option><option>Household</option><option>Personal Care</option><option selected>Other</option>
-    </select>
-  </div>
   <div class="add-btns">
     <div class="menu-wrap">
       <button class="btn-menu" onclick="toggleMenu()">⚙️ More</button>
@@ -151,7 +140,23 @@ h1 { font-size: 1.4rem; }
   <button class="shopping-done" onclick="doneShop()">✅ Done Shopping - Restock Checked</button>
 </div>
 
-<!-- BULK ADD MODAL -->
+<!-- ADD ITEM MODAL -->
+<div class="modal" id="addModal">
+  <div class="modal-content">
+    <h3>➕ Add Item</h3>
+    <input id="inp-name" placeholder="Item name..." autocomplete="off">
+    <div style="display:flex;gap:8px">
+      <input id="inp-qty" type="number" min="1" value="1" placeholder="Qty" style="width:70px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg);color:var(--text)">
+      <select id="inp-cat" style="flex:1">
+        <option>Produce</option><option>Dairy</option><option>Meat</option><option>Bakery</option><option>Frozen</option><option>Beverages</option><option>Snacks</option><option>Household</option><option>Personal Care</option><option selected>Other</option>
+      </select>
+    </div>
+    <div class="btns">
+      <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('addModal')">Cancel</button>
+      <button type="button" style="background:var(--green);color:#fff" onclick="addItem()">Add</button>
+    </div>
+  </div>
+</div>
 <div class="modal" id="bulkModal">
   <div class="modal-content">
     <h3>Bulk Add Items</h3>
@@ -278,7 +283,8 @@ function toggleMenu() {
 function menuAction(action) {
   document.getElementById('menuDropdown').classList.remove('show');
   if (action === 'add') {
-    document.getElementById('inp-name').focus();
+    document.getElementById('addModal').classList.add('show');
+    setTimeout(() => document.getElementById('inp-name').focus(), 100);
   } else if (action === 'voice') {
     voiceInput();
   } else if (action === 'bulk') {
@@ -388,6 +394,7 @@ async function addItem() {
   if (data) { items.push(data); render(); }
   document.getElementById('inp-name').value = '';
   document.getElementById('inp-qty').value = '1';
+  closeModal('addModal');
 }
 
 async function toggle(id) {
