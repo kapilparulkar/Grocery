@@ -219,7 +219,15 @@ function copyCode() {
 }
 
 function goToApp() {
-  window.location.href = '/app.html';
+  // Refresh session token before going to app
+  if (sb) {
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) localStorage.setItem('sb_token', session.access_token);
+      window.location.href = '/app.html';
+    });
+  } else {
+    window.location.href = '/app.html';
+  }
 }
 
 async function callApi(url, opts = {}) {
