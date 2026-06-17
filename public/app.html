@@ -168,6 +168,21 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 .voice-confirm .btns { display: flex; gap: 6px; }
 .voice-confirm .btns button { flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: .85rem; cursor: pointer; color: #fff; }
 .btn-move-top { background: var(--blue); color: #fff; font-size: .7rem !important; padding: 4px 6px !important; }
+.onboarding { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; overflow-y: auto; }
+.onboarding.show { display: flex; }
+.onboarding-step { display: none; flex-direction: column; align-items: center; max-width: 340px; width: 100%; animation: slideIn .3s ease; }
+.onboarding-step.active { display: flex; }
+.onboarding-step .emoji { font-size: 3.5rem; margin-bottom: 16px; }
+.onboarding-step h2 { font-size: 1.3rem; margin-bottom: 8px; }
+.onboarding-step p { font-size: .9rem; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+.onboarding-step .tip { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; font-size: .85rem; margin-bottom: 12px; width: 100%; text-align: left; }
+.onboarding-step .tip .tip-icon { margin-right: 8px; }
+.onboarding-dots { display: flex; gap: 8px; margin: 20px 0; }
+.onboarding-dots .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background .2s; }
+.onboarding-dots .dot.active { background: var(--green); }
+.onboarding-btn { padding: 14px 32px; background: var(--green); color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; min-width: 200px; }
+.onboarding-btn:active { transform: scale(.97); }
+.onboarding-skip { background: none; border: none; color: var(--muted); font-size: .85rem; cursor: pointer; margin-top: 12px; padding: 8px; }
 </style>
 </head>
 <body>
@@ -215,6 +230,50 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 
 <div class="offline-bar" id="offline-bar">📡 Offline — changes will sync when back online</div>
 <div class="notif-bar" id="notif"></div>
+
+<!-- ONBOARDING -->
+<div class="onboarding" id="onboarding">
+  <div class="onboarding-step active" id="ob-step-0">
+    <div class="emoji">🛒</div>
+    <h2>Welcome to Grocery List!</h2>
+    <p>Your family shopping list — synced across all devices in real-time.</p>
+    <div class="tip"><span class="tip-icon">👨‍👩‍👧</span> Everyone in your family sees the same list instantly</div>
+    <div class="tip"><span class="tip-icon">📡</span> Works offline too — syncs when you're back online</div>
+  </div>
+  <div class="onboarding-step" id="ob-step-1">
+    <div class="emoji">👆</div>
+    <h2>Quick Gestures</h2>
+    <p>Navigate your list faster with these shortcuts:</p>
+    <div class="tip"><span class="tip-icon">👈</span> <b>Swipe left</b> on an item → mark as "Out of stock"</div>
+    <div class="tip"><span class="tip-icon">👉</span> <b>Swipe right</b> on an out-of-stock item → Restock it</div>
+    <div class="tip"><span class="tip-icon">⬇️</span> <b>Pull down</b> from the top → Refresh the list</div>
+  </div>
+  <div class="onboarding-step" id="ob-step-2">
+    <div class="emoji">🛖</div>
+    <h2>Shopping Mode</h2>
+    <p>When you're at the store, switch to Shopping Mode:</p>
+    <div class="tip"><span class="tip-icon">✅</span> Check off items as you pick them up</div>
+    <div class="tip"><span class="tip-icon">🔄</span> Hit "Done" to restock all checked items at once</div>
+    <div class="tip"><span class="tip-icon">🔗</span> Share your list via WhatsApp or any app</div>
+  </div>
+  <div class="onboarding-step" id="ob-step-3">
+    <div class="emoji">🎤</div>
+    <h2>Pro Tips</h2>
+    <p>Power features to save you time:</p>
+    <div class="tip"><span class="tip-icon">🎤</span> <b>Voice Input</b> — say "Add 2 Milk to Dairy"</div>
+    <div class="tip"><span class="tip-icon">📝</span> <b>Bulk Add</b> — paste a list, one item per line</div>
+    <div class="tip"><span class="tip-icon">↑</span> <b>Move to Top</b> — prioritize items you need first</div>
+    <div class="tip"><span class="tip-icon">📝</span> <b>Notes</b> — add brand or size info to any item</div>
+  </div>
+  <div class="onboarding-dots">
+    <div class="dot active" data-step="0"></div>
+    <div class="dot" data-step="1"></div>
+    <div class="dot" data-step="2"></div>
+    <div class="dot" data-step="3"></div>
+  </div>
+  <button class="onboarding-btn" id="ob-next" onclick="nextOnboardingStep()">Next →</button>
+  <button class="onboarding-skip" onclick="dismissOnboarding()">Skip tutorial</button>
+</div>
 
 <div class="page-tabs">
   <button class="page-tab active" id="tab-btn-home" onclick="switchView('home')">📋 List</button>
@@ -957,6 +1016,25 @@ if ('Notification' in window && Notification.permission === 'default') Notificat
 // Init
 updateOfflineStatus();
 
+// Onboarding
+let obStep = 0;
+function showOnboarding() {
+  if (localStorage.getItem('onboarding_done')) return;
+  document.getElementById('onboarding').classList.add('show');
+}
+function nextOnboardingStep() {
+  obStep++;
+  if (obStep > 3) { dismissOnboarding(); return; }
+  document.querySelectorAll('.onboarding-step').forEach(s => s.classList.remove('active'));
+  document.getElementById('ob-step-' + obStep).classList.add('active');
+  document.querySelectorAll('.onboarding-dots .dot').forEach(d => d.classList.toggle('active', parseInt(d.dataset.step) === obStep));
+  if (obStep === 3) document.getElementById('ob-next').textContent = 'Get Started ✓';
+}
+function dismissOnboarding() {
+  document.getElementById('onboarding').classList.remove('show');
+  localStorage.setItem('onboarding_done', '1');
+}
+
 // Refresh token via Supabase then load
 (function initApp() {
   const token = localStorage.getItem('sb_token');
@@ -966,7 +1044,7 @@ updateOfflineStatus();
     .then(r => r.json())
     .then(d => {
       if (d && d.user) {
-        load();
+        load().then(() => showOnboarding());
       } else {
         localStorage.removeItem('sb_token');
         window.location.href = '/auth.html';

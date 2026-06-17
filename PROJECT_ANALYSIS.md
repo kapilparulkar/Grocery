@@ -151,4 +151,4 @@ npx netlify dev
 
 17. **PWA icon is just an SVG emoji** — On home screens, a proper icon with background would look more polished.
 
-18. **No onboarding/tutorial** — First-time users see 58 default items with no explanation of swipe gestures, shopping mode, or voice commands.
+18. ~~**No onboarding/tutorial** — First-time users see 58 default items with no explanation of swipe gestures, shopping mode, or voice commands.~~ ✅ **DONE** — Added a 4-step onboarding overlay (Welcome, Gestures, Shopping Mode, Pro Tips) shown on first visit, with skip option. Stored in localStorage so it only shows once.
