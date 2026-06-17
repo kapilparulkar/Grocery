@@ -117,7 +117,7 @@ npx netlify dev
 
 2. **No "quick add" from the main screen** — Users must open the drawer or modal to add items. A floating action button (FAB) or inline input at the top would be much faster for repeated adds.
 
-3. **No edit item** — Once added, users can't rename an item or change its category without deleting and re-adding. An inline edit (tap item name) or edit modal would help.
+3. ~~**No edit item** — Once added, users can't rename an item or change its category without deleting and re-adding. An inline edit (tap item name) or edit modal would help.~~ ✅ **DONE** — Tapping an item's name/info opens an edit modal where users can change name, note, quantity, and category.
 
 4. **Shopping mode loses progress on refresh** — Checked items in shop mode are only in DOM state. If the page refreshes mid-shopping, all checkmarks are lost.
 

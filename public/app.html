@@ -385,6 +385,25 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
   </div>
 </div>
 
+<!-- EDIT ITEM MODAL -->
+<div class="modal" id="editModal">
+  <div class="modal-content">
+    <h3>✏️ Edit Item</h3>
+    <input id="edit-name" placeholder="Item name..." autocomplete="off">
+    <input id="edit-note" placeholder="Note (optional)" autocomplete="off">
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input id="edit-qty" type="number" min="1" value="1" placeholder="Qty" style="width:70px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg);color:var(--text)">
+      <select id="edit-cat" style="flex:1">
+        <option>Produce</option><option>Dairy</option><option>Meat</option><option>Bakery</option><option>Frozen</option><option>Beverages</option><option>Snacks</option><option>Household</option><option>Personal Care</option><option>Other</option>
+      </select>
+    </div>
+    <div class="btns">
+      <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('editModal')">Cancel</button>
+      <button type="button" style="background:var(--green);color:#fff" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST (undo) -->
 <div class="toast" id="toast">
   <span id="toast-msg"></span>
@@ -704,7 +723,7 @@ function render() {
       html += `<div class="item${cls}" data-id="${it.id}">
         <div class="swipe-bg left">◀ Out</div>
         <div class="swipe-bg right">Restock ▶</div>
-        <div class="info"><div class="name">${esc(it.name)}</div>${noteHtml}${it.added_by ? `<div style="font-size:.7rem;color:var(--muted)">Added by ${esc(it.added_by)}</div>` : ''}</div>
+        <div class="info" onclick="openEdit(${it.id})" style="cursor:pointer"><div class="name">${esc(it.name)}</div>${noteHtml}${it.added_by ? `<div style="font-size:.7rem;color:var(--muted)">Added by ${esc(it.added_by)}</div>` : ''}</div>
         <div class="qty-ctrl">
           <button onclick="changeQty(${it.id},${it.quantity - 1})">−</button>
           <span>${it.quantity}</span>
@@ -806,6 +825,42 @@ async function moveToTop(id) {
   const minOrder = Math.min(...items.filter(i => i.category === item.category).map(i => i.sort_order)) - 1;
   const data = await api(`/api/items/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ sort_order: minOrder }) });
   if (data) { const idx = items.findIndex(i => i.id === id); if (idx >= 0) items[idx] = data; render(); showNotif(`↑ "${item.name}" moved to top`); }
+}
+
+// Edit item
+let editingId = null;
+function openEdit(id) {
+  haptic();
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  editingId = id;
+  document.getElementById('edit-name').value = item.name;
+  document.getElementById('edit-note').value = item.note || '';
+  document.getElementById('edit-qty').value = item.quantity;
+  document.getElementById('edit-cat').value = item.category || 'Other';
+  document.getElementById('editModal').classList.add('show');
+  setTimeout(() => document.getElementById('edit-name').focus(), 100);
+}
+async function saveEdit() {
+  if (!editingId) return;
+  const name = document.getElementById('edit-name').value.trim();
+  if (!name) { document.getElementById('edit-name').style.animation = 'shake .4s'; setTimeout(() => document.getElementById('edit-name').style.animation = '', 400); return; }
+  haptic('success');
+  const updates = {
+    name,
+    note: document.getElementById('edit-note').value.trim() || null,
+    quantity: parseInt(document.getElementById('edit-qty').value) || 1,
+    category: document.getElementById('edit-cat').value
+  };
+  const data = await api(`/api/items/${editingId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates) });
+  if (data) {
+    const idx = items.findIndex(i => i.id === editingId);
+    if (idx >= 0) items[idx] = data;
+    render();
+    showNotif(`✅ "${name}" updated`);
+  }
+  editingId = null;
+  closeModal('editModal');
 }
 
 // Bulk
