@@ -152,3 +152,63 @@ npx netlify dev
 17. **PWA icon is just an SVG emoji** — On home screens, a proper icon with background would look more polished.
 
 18. ~~**No onboarding/tutorial** — First-time users see 58 default items with no explanation of swipe gestures, shopping mode, or voice commands.~~ ✅ **DONE** — Added a 4-step onboarding overlay (Welcome, Gestures, Shopping Mode, Pro Tips) shown on first visit, with skip option. Stored in localStorage so it only shows once.
+
+
+---
+
+## Future Suggestions
+
+### Quick Wins
+
+19. **Floating "+" button on main screen** — A FAB (floating action button) at the bottom-right to quickly open the add modal without navigating the drawer. One-tap access.
+
+20. **Shopping mode persist checked state** — Save checked item IDs to `localStorage` so refreshing mid-shop doesn't lose progress.
+
+21. **Confirmation before logout** — Accidental logout loses nothing server-side, but re-auth on mobile is annoying. A quick confirm dialog helps.
+
+22. **Item count summary in header** — Show "3 out of stock" or "All stocked ✓" below the family name for at-a-glance status.
+
+### Medium Effort
+
+23. **Sort options** — Let users sort by: name (A-Z), recently added, quantity, or stock status. Currently only sort_order + alphabetical within category.
+
+24. **Search in shopping mode** — With 50+ out-of-stock items, searching while shopping would help.
+
+25. **Swipe-to-delete** — Currently requires enabling "Delete Mode" via drawer. A left-swipe-past-threshold could trigger delete directly (with undo toast).
+
+26. **Last purchased timestamp** — Track when items were last restocked (`restocked_at` column). Show "Last bought 3 days ago" to help decide if something is needed.
+
+27. **Export/import list as JSON** — For backup or migrating between families.
+
+### Bigger Features
+
+28. **Push notifications** — Notify family members when someone marks items as "out of stock" or adds new items. Uses existing Notification permission request.
+
+29. **Recurring items** — Add a `recurring_days` field. A scheduled function (Netlify Scheduled Functions) auto-marks items as out-of-stock on their cycle.
+
+30. **Price tracking** — Add `price` field to items. Show estimated shopping total in Shopping Mode. Track spending over time.
+
+31. **Activity log** — Show who added/toggled/deleted what and when. Useful for families to see "Dad marked Milk as out of stock 2h ago".
+
+
+---
+
+## Completed Additional Features
+
+### Unit-based Quantities ✅
+
+Items now support measurement units (pcs, kg, g, L, ml, packet, dozen, bundle).
+
+**Smart auto-detection** based on item name:
+- "Milk", "Oil" → L
+- "Rice", "Flour", "Dal", "Sugar" → kg
+- "Powder", "Masala", "Haldi" → g
+- "Coriander leaves", "Spinach" → bundle
+- "Eggs", "Banana" → dozen
+- "Maggi", "Biscuit", "Bread" → packet
+- Everything else → pcs
+
+**DB migration required:**
+```sql
+ALTER TABLE items ADD COLUMN unit TEXT DEFAULT 'pcs';
+```

@@ -184,7 +184,7 @@ exports.handler = async (event) => {
       const { data, error } = await getAdmin().from('items').insert({
         name: body.name.trim(), category: body.category || 'Other', quantity: body.quantity || 1,
         in_stock: true, sort_order: nextOrder, family_id, added_by: display_name,
-        note: body.note || null
+        note: body.note || null, unit: body.unit || 'pcs'
       }).select();
       if (error) throw error;
       return resp(201, data[0]);
@@ -216,6 +216,7 @@ exports.handler = async (event) => {
       if (body.in_stock !== undefined) updates.in_stock = body.in_stock;
       if (body.note !== undefined) updates.note = body.note;
       if (body.sort_order !== undefined) updates.sort_order = body.sort_order;
+      if (body.unit !== undefined) updates.unit = body.unit;
       const { data, error } = await getAdmin().from('items').update(updates)
         .eq('id', id).eq('family_id', family_id).select();
       if (error) throw error;
