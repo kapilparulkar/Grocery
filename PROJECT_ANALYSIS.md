@@ -113,7 +113,7 @@ npx netlify dev
 
 ### High Priority (Pain Points)
 
-1. **No real-time sync** — `initRealtime()` is empty. Family members wait up to 5s polling to see each other's changes. Implement Supabase Realtime subscriptions for instant updates.
+1. ~~**No real-time sync** — `initRealtime()` is empty. Family members wait up to 5s polling to see each other's changes. Implement Supabase Realtime subscriptions for instant updates.~~ ✅ **DONE** — Implemented Supabase Realtime `postgres_changes` subscription on the `items` table filtered by `family_id`. Handles INSERT/UPDATE/DELETE events instantly. Falls back to 5s polling if realtime fails.
 
 2. **No "quick add" from the main screen** — Users must open the drawer or modal to add items. A floating action button (FAB) or inline input at the top would be much faster for repeated adds.
 
