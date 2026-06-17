@@ -169,6 +169,14 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 .voice-confirm .btns { display: flex; gap: 6px; }
 .voice-confirm .btns button { flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: .85rem; cursor: pointer; color: #fff; }
 .btn-move-top { background: var(--blue); color: #fff; font-size: .7rem !important; padding: 4px 6px !important; }
+.autocomplete { position: relative; }
+.autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.15); z-index: 1100; max-height: 200px; overflow-y: auto; display: none; }
+.autocomplete-list.show { display: block; }
+.autocomplete-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; cursor: pointer; font-size: .9rem; border-bottom: 1px solid var(--border); transition: background .1s; }
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover, .autocomplete-item:active { background: var(--bg); }
+.autocomplete-item .ac-name { font-weight: 500; }
+.autocomplete-item .ac-meta { font-size: .7rem; color: var(--muted); }
 .onboarding { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; overflow-y: auto; }
 .onboarding.show { display: flex; }
 .onboarding-step { display: none; flex-direction: column; align-items: center; max-width: 340px; width: 100%; animation: slideIn .3s ease; }
@@ -331,7 +339,10 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 <div class="modal" id="addModal">
   <div class="modal-content">
     <h3>➕ Add Item</h3>
-    <input id="inp-name" placeholder="Item name..." autocomplete="off" oninput="autoDetectUnit()">
+    <div class="autocomplete">
+      <input id="inp-name" placeholder="Item name..." autocomplete="off" oninput="onNameInput()">
+      <div class="autocomplete-list" id="ac-list"></div>
+    </div>
     <input id="inp-note" placeholder="Note (optional, e.g. Brand: Aashirvaad)" autocomplete="off">
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <input id="inp-qty" type="number" min="0.1" step="0.1" value="1" placeholder="Qty" style="width:70px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg);color:var(--text)">
@@ -952,6 +963,44 @@ function autoDetectUnit() {
   else if (gItems.test(name)) unitSel.value = 'g';
   else if (kgItems.test(name)) unitSel.value = 'kg';
   else unitSel.value = 'pcs';
+}
+
+// Autocomplete from master items
+let acTimer = null;
+function onNameInput() {
+  autoDetectUnit();
+  clearTimeout(acTimer);
+  const q = document.getElementById('inp-name').value.trim();
+  if (q.length < 2) { hideAc(); return; }
+  acTimer = setTimeout(() => fetchMasterItems(q), 250);
+}
+
+async function fetchMasterItems(q) {
+  const data = await api(`/api/master-items?q=${encodeURIComponent(q)}`);
+  if (!data || !data.length) { hideAc(); return; }
+  window._acResults = data;
+  const list = document.getElementById('ac-list');
+  list.innerHTML = data.map((it, i) =>
+    `<div class="autocomplete-item" onclick="selectMasterIdx(${i})">
+      <span class="ac-name">${esc(it.name)}</span>
+      <span class="ac-meta">${esc(it.category)} \u00b7 ${it.default_quantity} ${esc(it.unit)}</span>
+    </div>`
+  ).join('');
+  list.classList.add('show');
+}
+
+function selectMasterIdx(i) {
+  const it = window._acResults[i];
+  if (!it) return;
+  document.getElementById('inp-name').value = it.name;
+  document.getElementById('inp-cat').value = it.category;
+  document.getElementById('inp-unit').value = it.unit;
+  document.getElementById('inp-qty').value = it.default_quantity;
+  hideAc();
+}
+
+function hideAc() {
+  document.getElementById('ac-list').classList.remove('show');
 }
 
 // Shopping mode

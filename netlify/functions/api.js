@@ -86,6 +86,19 @@ exports.handler = async (event) => {
       return resp(200, { user: { id: user.id, email: user.email }, memberships: memberships || [] });
     }
 
+    // GET /master-items?q=... — search master catalog
+    if (path === 'master-items' && method === 'GET') {
+      const q = event.queryStringParameters?.q || '';
+      if (q.length < 2) return resp(200, []);
+      const { data, error } = await getAdmin().from('master_items')
+        .select('name, category, unit, default_quantity')
+        .or(`name.ilike.%${q}%,aliases.cs.{${q.toLowerCase()}}`)
+        .order('popular_score', { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      return resp(200, data || []);
+    }
+
     // POST /auth/family/create
     if (path === 'auth/family/create' && method === 'POST') {
       const admin = getAdmin();

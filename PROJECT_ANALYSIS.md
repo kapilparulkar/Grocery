@@ -62,15 +62,95 @@ Family grocery list PWA deployed on Netlify with Supabase as the backend. Suppor
 
 ## Database Schema
 
+### Tables
+
+#### `families`
+| Column | Type | Details |
+|--------|------|------|
+| `id` | UUID | Primary key (auto via `gen_random_uuid()`) |
+| `name` | TEXT | e.g. "Sharma Family" |
+| `invite_code` | TEXT | 6-char uppercase code (e.g. "A3BX9K"), UNIQUE |
+| `created_by` | UUID | References Supabase auth user ID |
+| `created_at` | TIMESTAMPTZ | Auto-set |
+
+#### `family_members`
+| Column | Type | Details |
+|--------|------|------|
+| `id` | SERIAL | Primary key |
+| `family_id` | UUID/FK | References `families.id` ON DELETE CASCADE |
+| `user_id` | UUID | References Supabase auth user ID |
+| `display_name` | TEXT | e.g. "Dad", "Priya" |
+| `role` | TEXT | `'admin'` or `'member'` |
+| `joined_at` | TIMESTAMPTZ | Auto-set |
+
+#### `items`
+| Column | Type | Details |
+|--------|------|------|
+| `id` | SERIAL | Primary key |
+| `name` | TEXT | Item name |
+| `category` | TEXT | Default `'Other'` |
+| `quantity` | NUMERIC | Default `1` |
+| `unit` | TEXT | Default `'pcs'` (pcs, kg, g, L, ml, packet, dozen, bundle) |
+| `in_stock` | BOOLEAN | Default `true` |
+| `sort_order` | INTEGER | For ordering |
+| `family_id` | UUID/FK | References `families.id` ON DELETE CASCADE |
+| `added_by` | TEXT | Display name of who added it |
+| `note` | TEXT | Optional note |
+| `created_at` | TIMESTAMPTZ | Auto-set |
+
+### Relationships
+
+```
+families (1) ──── (*) family_members (*) ──── (1) auth.users
+families (1) ──── (*) items
+```
+
+### Full SQL Setup
+
 ```sql
--- Families
-families (id, name, invite_code, created_by)
+CREATE TABLE families (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  invite_code TEXT UNIQUE NOT NULL,
+  created_by UUID NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- Family Members
-family_members (id, family_id, user_id, display_name, role, joined_at)
+CREATE TABLE family_members (
+  id SERIAL PRIMARY KEY,
+  family_id UUID REFERENCES families(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
+  display_name TEXT NOT NULL,
+  role TEXT DEFAULT 'member',
+  joined_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(family_id, user_id)
+);
 
--- Items
-items (id, name, category, quantity, in_stock, sort_order, family_id, added_by, created_at)
+CREATE TABLE items (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  category TEXT DEFAULT 'Other',
+  quantity NUMERIC DEFAULT 1,
+  unit TEXT DEFAULT 'pcs',
+  in_stock BOOLEAN DEFAULT true,
+  sort_order INTEGER DEFAULT 0,
+  family_id UUID REFERENCES families(id) ON DELETE CASCADE,
+  added_by TEXT,
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable realtime
+ALTER TABLE items REPLICA IDENTITY FULL;
+
+-- RLS (allow all via anon key — secured by API layer)
+ALTER TABLE families ENABLE ROW LEVEL SECURITY;
+ALTER TABLE family_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow all" ON families FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON family_members FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON items FOR ALL USING (true) WITH CHECK (true);
 ```
 
 ## Notable Issues & Observations
@@ -211,4 +291,24 @@ Items now support measurement units (pcs, kg, g, L, ml, packet, dozen, bundle).
 **DB migration required:**
 ```sql
 ALTER TABLE items ADD COLUMN unit TEXT DEFAULT 'pcs';
+```
+
+### Master Items Catalog (Autocomplete) ✅
+
+A `master_items` table serves as a pre-built dictionary of ~120 common Indian grocery items.
+
+**How it works:**
+- User types 2+ characters in "Add Item" input → debounced API call searches master catalog
+- Dropdown shows matching items with category, unit, and default quantity
+- Selecting an item auto-fills name, category, unit, and quantity
+- If no match, user can still type freely (manual entry still works)
+
+**Components:**
+- `sql/master_items.sql` — Table creation + 120 seed items with aliases
+- `GET /api/master-items?q=...` — Searches by name (ilike) and aliases (array contains)
+- Frontend autocomplete dropdown with index-based selection (avoids quote escaping issues)
+
+**DB setup required:**
+```sql
+-- Run sql/master_items.sql in Supabase SQL Editor
 ```
