@@ -155,6 +155,10 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 .swipe-bg { position: absolute; top: 0; bottom: 0; width: 100%; display: flex; align-items: center; padding: 0 16px; font-size: .8rem; color: #fff; font-weight: 600; pointer-events: none; opacity: 0; transition: opacity .2s; }
 .swipe-bg.left { right: 0; justify-content: flex-end; background: linear-gradient(to left, var(--orange), transparent); }
 .swipe-bg.right { left: 0; justify-content: flex-start; background: linear-gradient(to right, var(--green), transparent); }
+.pull-indicator { text-align: center; color: var(--muted); font-size: .8rem; padding: 8px; margin: -12px 0 8px; transition: opacity .2s; opacity: 0; }
+.pull-indicator.visible { opacity: 1; }
+.confirm-modal .modal-content { text-align: center; }
+.confirm-modal .item-name { font-weight: 600; color: var(--red); margin: 8px 0 16px; font-size: 1.1rem; }
 </style>
 </head>
 <body>
@@ -205,11 +209,12 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 
 <div class="page-tabs">
   <button class="page-tab active" id="tab-btn-home" onclick="switchView('home')">📋 List</button>
-  <button class="page-tab" id="tab-btn-shop" onclick="switchView('shop')">🛖 Shop</button>
+  <button class="page-tab" id="tab-btn-shop" onclick="switchView('shop')">🛖 Shop <span id="shop-badge"></span></button>
 </div>
 
 <!-- HOME VIEW -->
 <div id="view-home">
+  <div class="pull-indicator" id="pull-indicator">↓ Pull to refresh</div>
   <input class="search" placeholder="Search items..." oninput="render()">
   <div class="cat-tabs" id="cat-tabs"></div>
   <div id="list"></div>
@@ -279,6 +284,18 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
   </div>
 </div>
 
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal confirm-modal" id="confirmDeleteModal">
+  <div class="modal-content">
+    <h3>🗑️ Delete Item?</h3>
+    <div class="item-name" id="confirm-del-name"></div>
+    <div class="btns">
+      <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('confirmDeleteModal')">Cancel</button>
+      <button type="button" style="background:var(--red);color:#fff" onclick="confirmDel()">Delete</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST (undo) -->
 <div class="toast" id="toast">
   <span id="toast-msg"></span>
@@ -295,6 +312,7 @@ let isOnline = navigator.onLine;
 let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
 
 const catOrder = ['Produce','Dairy','Meat','Bakery','Frozen','Beverages','Snacks','Household','Personal Care','Other'];
+const catEmoji = {Produce:'🥬',Dairy:'🥛',Meat:'🥩',Bakery:'🍞',Frozen:'🧊',Beverages:'☕',Snacks:'🍪',Household:'🧹','Personal Care':'🧴',Other:'📦'};
 let realtimeChannel = null;
 let activeFamilyId = localStorage.getItem('active_family_id') || null;
 let allFamilies = [];
@@ -359,6 +377,11 @@ function switchView(view) {
   document.getElementById('menu-home').classList.toggle('active-view', isHome);
   document.getElementById('menu-shop').classList.toggle('active-view', !isHome);
   if (!isHome) renderShop();
+}
+
+function updateShopBadge() {
+  const count = items.filter(i => !i.in_stock).length;
+  document.getElementById('shop-badge').textContent = count > 0 ? `(${count})` : '';
 }
 
 function openDrawer() {
@@ -529,7 +552,7 @@ function render() {
   let tabsHtml = `<div class="cat-tab${activeCat==='All'?' active':''}" onclick="selectCat('All')">All<span class="count">${filtered.length}</span></div>`;
   for (const cat of catOrder) {
     if (categories[cat]) {
-      tabsHtml += `<div class="cat-tab${activeCat===cat?' active':''}" onclick="selectCat('${cat}')">${cat}<span class="count">${categories[cat].length}</span></div>`;
+      tabsHtml += `<div class="cat-tab${activeCat===cat?' active':''}" onclick="selectCat('${cat}')">${catEmoji[cat]||''} ${cat}<span class="count">${categories[cat].length}</span></div>`;
     }
   }
   document.getElementById('cat-tabs').innerHTML = tabsHtml;
@@ -540,7 +563,7 @@ function render() {
   let html = '';
   for (const cat of visibleCats) {
     const catItems = categories[cat].sort((a,b) => b.in_stock - a.in_stock || a.name.localeCompare(b.name));
-    html += `<div class="category-group"><div class="category-title">${esc(cat)} (${catItems.length})</div>`;
+    html += `<div class="category-group"><div class="category-title">${catEmoji[cat]||'📦'} ${esc(cat)} (${catItems.length})</div>`;
     for (const it of catItems) {
       const cls = it.in_stock ? '' : ' out';
       const toggleLabel = it.in_stock ? 'Out' : '✓';
@@ -560,6 +583,7 @@ function render() {
     html += '</div>';
   }
   document.getElementById('list').innerHTML = html || '<p style="text-align:center;color:var(--muted);margin-top:40px">No items yet. Add something above!</p>';
+  updateShopBadge();
 }
 
 // CRUD
@@ -593,7 +617,18 @@ async function changeQty(id, newQty) {
   if (data) { const idx = items.findIndex(i => i.id === id); if (idx >= 0) items[idx] = data; render(); }
 }
 
-async function del(id) {
+let pendingDeleteId = null;
+function del(id) {
+  haptic('medium');
+  const item = items.find(i => i.id === id);
+  pendingDeleteId = id;
+  document.getElementById('confirm-del-name').textContent = item.name;
+  document.getElementById('confirmDeleteModal').classList.add('show');
+}
+async function confirmDel() {
+  closeModal('confirmDeleteModal');
+  const id = pendingDeleteId;
+  if (!id) return;
   haptic('heavy');
   const el = document.querySelector(`.item[data-id="${id}"]`);
   const item = items.find(i => i.id === id);
@@ -604,6 +639,7 @@ async function del(id) {
   items = items.filter(i => i.id !== id);
   render();
   showToast(`"${item.name}" deleted`);
+  pendingDeleteId = null;
 }
 
 async function undoDelete() {
@@ -684,14 +720,27 @@ async function doneShop() {
   showNotif(`✅ ${ids.length} item(s) restocked!`);
 }
 
-// Share
+// Share — sends actual shopping list text via WhatsApp or native share
 function shareList() {
   haptic();
-  if (navigator.share) {
-    navigator.share({ title: 'Grocery List', url: window.location.href });
+  const outItems = items.filter(i => !i.in_stock);
+  let text = '🛒 *Shopping List*\n';
+  if (outItems.length) {
+    const grouped = {};
+    outItems.forEach(it => { const c = it.category||'Other'; if(!grouped[c]) grouped[c]=[]; grouped[c].push(it); });
+    for (const cat of catOrder) {
+      if (!grouped[cat]) continue;
+      text += `\n*${catEmoji[cat]||''} ${cat}*\n`;
+      grouped[cat].forEach(it => { text += `☐ ${it.name} ×${it.quantity}\n`; });
+    }
   } else {
-    navigator.clipboard.writeText(window.location.href);
-    showNotif('📋 Link copied!');
+    text += '\n✅ All items in stock!';
+  }
+  if (navigator.share) {
+    navigator.share({ title: 'Shopping List', text });
+  } else {
+    const waUrl = 'https://wa.me/?text=' + encodeURIComponent(text);
+    window.open(waUrl, '_blank');
   }
 }
 
@@ -795,6 +844,26 @@ document.addEventListener('touchmove', e => {
     if (diff < -40) touchItem.querySelector('.swipe-bg.left').style.opacity = '1'; else touchItem.querySelector('.swipe-bg.left').style.opacity = '0';
     if (diff > 40 && touchItem.classList.contains('out')) touchItem.querySelector('.swipe-bg.right').style.opacity = '1'; else if(touchItem.querySelector('.swipe-bg.right')) touchItem.querySelector('.swipe-bg.right').style.opacity = '0';
   }
+});
+
+// Pull-to-refresh
+let pullStartY = 0, isPulling = false;
+document.addEventListener('touchstart', e => {
+  if (window.scrollY === 0 && !e.target.closest('.item') && !e.target.closest('.modal')) {
+    pullStartY = e.touches[0].clientY; isPulling = true;
+  }
+});
+document.addEventListener('touchmove', e => {
+  if (!isPulling) return;
+  const diff = e.touches[0].clientY - pullStartY;
+  if (diff > 60) document.getElementById('pull-indicator').classList.add('visible');
+});
+document.addEventListener('touchend', e => {
+  if (!isPulling) return;
+  const diff = e.changedTouches[0].clientY - pullStartY;
+  isPulling = false;
+  document.getElementById('pull-indicator').classList.remove('visible');
+  if (diff > 80) { haptic('medium'); load(); showNotif('🔄 Refreshed'); }
 });
 
 // PWA
