@@ -159,12 +159,24 @@ exports.handler = async (event) => {
 
     // POST /items
     if (path === 'items' && method === 'POST') {
+      // Check for duplicate (case-insensitive)
+      const { data: existing } = await getAdmin().from('items')
+        .select('*').eq('family_id', family_id).ilike('name', body.name.trim()).limit(1);
+      if (existing && existing.length > 0) {
+        const item = existing[0];
+        const newQty = item.quantity + (body.quantity || 1);
+        const { data, error } = await getAdmin().from('items')
+          .update({ quantity: newQty, in_stock: true }).eq('id', item.id).select();
+        if (error) throw error;
+        return resp(200, { ...data[0], merged: true });
+      }
       const { data: max } = await getAdmin().from('items').select('sort_order')
         .eq('family_id', family_id).order('sort_order', { ascending: false }).limit(1);
       const nextOrder = (max && max.length > 0 ? max[0].sort_order : 0) + 1;
       const { data, error } = await getAdmin().from('items').insert({
-        name: body.name, category: body.category || 'Other', quantity: body.quantity || 1,
-        in_stock: true, sort_order: nextOrder, family_id, added_by: display_name
+        name: body.name.trim(), category: body.category || 'Other', quantity: body.quantity || 1,
+        in_stock: true, sort_order: nextOrder, family_id, added_by: display_name,
+        note: body.note || null
       }).select();
       if (error) throw error;
       return resp(201, data[0]);
@@ -194,6 +206,8 @@ exports.handler = async (event) => {
       if (body.category !== undefined) updates.category = body.category;
       if (body.quantity !== undefined) updates.quantity = body.quantity;
       if (body.in_stock !== undefined) updates.in_stock = body.in_stock;
+      if (body.note !== undefined) updates.note = body.note;
+      if (body.sort_order !== undefined) updates.sort_order = body.sort_order;
       const { data, error } = await getAdmin().from('items').update(updates)
         .eq('id', id).eq('family_id', family_id).select();
       if (error) throw error;
