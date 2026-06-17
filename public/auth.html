@@ -59,7 +59,7 @@ input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radi
   <div class="title">Welcome!</div>
   <div class="sub" id="welcome-name">Set up your family list</div>
   <div class="options">
-    <div class="option" onclick="showScreen('screen-family-create')">
+    <div class="option" id="option-create" onclick="showScreen('screen-family-create')">
       <span class="icon">➕</span>
       <span class="label">Create Family</span>
       <span class="desc">Start a new list</span>
@@ -174,9 +174,14 @@ async function checkFamily() {
     goToApp();
   } else {
     const name = currentUser.user_metadata?.full_name?.split(' ')[0] || 'there';
-    document.getElementById('welcome-name').textContent = addMode
-      ? `Hi ${name}! Add another home`
-      : `Hi ${name}! Set up your family list`;
+    // Hide "Create Family" if user already created one
+    const hasCreatedFamily = res && res.memberships && res.memberships.some(m => m.role === 'admin');
+    if (addMode || hasCreatedFamily) {
+      document.getElementById('welcome-name').textContent = `Hi ${name}! Join a family list`;
+      document.getElementById('option-create').style.display = 'none';
+    } else {
+      document.getElementById('welcome-name').textContent = `Hi ${name}! Set up your family list`;
+    }
     showScreen('screen-family-choose');
   }
 }

@@ -89,6 +89,14 @@ exports.handler = async (event) => {
     // POST /auth/family/create
     if (path === 'auth/family/create' && method === 'POST') {
       const admin = getAdmin();
+
+      // Limit: user can only create one family
+      const { data: created } = await admin.from('families')
+        .select('id').eq('created_by', user.id);
+      if (created && created.length > 0) {
+        return resp(400, { error: 'You can only create one family. Ask others to join using your invite code.' });
+      }
+
       const invite_code = Math.random().toString(36).substring(2, 8).toUpperCase();
       const { data: family, error: fErr } = await admin.from('families')
         .insert({ name: body.family_name, invite_code, created_by: user.id }).select().single();
