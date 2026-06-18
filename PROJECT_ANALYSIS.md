@@ -312,3 +312,119 @@ A `master_items` table serves as a pre-built dictionary of ~120 common Indian gr
 ```sql
 -- Run sql/master_items.sql in Supabase SQL Editor
 ```
+
+
+---
+
+## Security & Code Quality Review
+
+### 🔴 Critical
+
+| # | Issue | File | Description |
+|---|-------|------|-------------|
+| 1 | **SQL Injection via ilike** | `netlify/functions/api.js` (L90) | The master-items search query interpolates user input directly into a Supabase filter: `.or(\`name.ilike.%${q}%,aliases.cs.{${q.toLowerCase()}}\`\`)`. A crafted `q` value can break out of the filter syntax and manipulate the query. |
+| 2 | **SQL Injection via ilike (duplicate check)** | `netlify/functions/api.js` (L135) | `.ilike('name', body.name.trim())` — If `body.name` contains `%` or `_` wildcards, it matches unintended rows, allowing a user to merge into another item. |
+| 3 | **No family membership check on item operations** | `netlify/functions/api.js` | If `requestedFamilyId` header is tampered with a UUID the user isn't a member of, the fallback logic (`|| allMemberships[0]`) silently uses the first family. The fallback behavior could mask bugs. |
+| 4 | **Service key fallback to anon key** | `netlify/functions/api.js` (L16) | `process.env.SUPABASE_SERVICE_KEY \|\| process.env.SUPABASE_ANON_KEY` — If the service key env var is missing, all admin operations silently run with the anon key. Should fail fast instead. |
+
+### 🟠 High
+
+| # | Issue | File | Description |
+|---|-------|------|-------------|
+| 5 | **Exposed Supabase anon key in client code** | `public/app.html`, `public/auth.html` | Anon key is hardcoded. While designed to be public (protected by RLS), in this project RLS is largely bypassed by the admin client in functions. If RLS policies are misconfigured, the anon key gives direct DB access. |
+| 6 | **Weak invite code (6 chars, no rate limit)** | `netlify/functions/api.js` (L100) | `Math.random().toString(36).substring(2, 8)` — Only ~2.1B combinations. No brute-force protection on the join endpoint. An attacker can enumerate invite codes. |
+| 7 | **No CSRF protection** | All API routes | The CORS policy is `Access-Control-Allow-Origin: *` which is overly permissive. |
+| 8 | **Wildcard CORS** | `public/_headers`, `netlify/functions/api.js` | `Access-Control-Allow-Origin: *` allows any website to make authenticated requests if the user's token is known. Should restrict to the actual domain. |
+| 9 | **No input length validation** | `netlify/functions/api.js` | `body.name`, `body.note`, bulk text — no max length. A user could insert megabytes of text into the database. |
+| 10 | **Bulk add has no item count limit** | `netlify/functions/api.js` (L147) | The `/items/bulk` endpoint splits by newlines with no cap. A single request could insert thousands of rows. |
+
+### 🟡 Medium
+
+| # | Issue | File | Description |
+|---|-------|------|-------------|
+| 11 | **XSS via `esc()` function is incomplete** | `public/app.html` | Several template literals inject into HTML attributes (e.g., `onclick="openEdit(${it.id})"`) which could be exploited if `id` is manipulated (unlikely with integer IDs but defense-in-depth is missing). |
+| 12 | **No token refresh mechanism** | `public/app.html` | The app stores `sb_token` in localStorage but never refreshes it. Supabase access tokens expire (default 1 hour). After expiry, all API calls fail until re-auth. |
+| 13 | **localStorage token storage** | `public/app.html`, `public/auth.html` | Tokens in localStorage are vulnerable to XSS. HttpOnly cookies would be safer. |
+| 14 | **Math.random() for security-sensitive code** | `netlify/functions/api.js` (L100) | `Math.random()` is not cryptographically secure. Use `crypto.randomBytes()` for invite code generation. |
+| 15 | **No request body size limit** | `netlify/functions/api.js` | `JSON.parse(event.body)` with no size check. The app should enforce limits smaller than Netlify's default ~6MB. |
+| 16 | **Notification permission requested on load** | `public/app.html` | `Notification.requestPermission()` is called immediately but notifications are never used. Degrades user trust. |
+
+### 🟢 Low / Informational
+
+| # | Issue | File | Description |
+|---|-------|------|-------------|
+| 17 | **Dead code: App.js** | `App.js` | React/Firebase implementation that's not used. Should be removed. |
+| 18 | **Service Worker caches CDN script** | `public/sw.js` | Caching `https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2` may serve stale library versions. |
+| 19 | **No Content-Security-Policy header** | `public/_headers` | Missing CSP allows inline scripts, external script injection. |
+| 20 | **No error boundary in frontend** | `public/app.html` | Unhandled promise rejections silently fail. API errors don't always surface to the user. |
+
+---
+
+### Code Quality Issues
+
+#### Architecture & Structure
+
+| # | Issue | File | Impact |
+|---|-------|------|--------|
+| 21 | **Monolithic single-file frontend** | `public/app.html` | ~800 lines of mixed HTML/CSS/JS. Hard to maintain, test, or review. |
+| 22 | **Monolithic API handler** | `netlify/functions/api.js` | Single function handles 12+ routes via string matching. No middleware, no route separation. |
+| 23 | **Duplicated Supabase credentials** | `public/app.html`, `public/auth.html` | Same URL and key hardcoded in two files. Should be injected at build time. |
+| 24 | **No TypeScript or type checking** | All files | No type safety, IDE support is limited, refactoring is risky. |
+| 25 | **No tests** | Project-wide | Zero test coverage. Critical business logic (duplicate detection, family membership) is untested. |
+
+#### Code Smells
+
+| # | Issue | File | Description |
+|---|-------|------|-------------|
+| 26 | **Inconsistent error handling** | `netlify/functions/api.js` | The toggle endpoint doesn't handle the case where the item isn't found (`item` is null). |
+| 27 | **Race conditions in quantity update** | `netlify/functions/api.js` (L135-140) | Read-then-update pattern. Two concurrent requests cause a lost update. Should use SQL increment. |
+| 28 | **Global state pollution** | `public/app.html` | All variables are global. Name collisions with third-party scripts are possible. |
+| 29 | **No debouncing on render()** | `public/app.html` | Search input triggers full DOM rebuild on every keystroke. |
+| 30 | **Polling fallback runs unconditionally** | `public/app.html` | If realtime fails to connect, it never retries — just polls forever. |
+| 31 | **Magic strings throughout** | All files | Category names, API paths, status values — all hardcoded. Typos won't be caught. |
+| 32 | **No pagination** | `netlify/functions/api.js` | `GET /items` returns all items with no limit. |
+| 33 | **`verify.js` is redundant** | `netlify/functions/verify.js` | Token verification is already done in `api.js`. This function appears unused by the frontend. |
+
+---
+
+### Recommendations (Priority Order)
+
+#### Immediate (Security)
+
+1. **Sanitize search input** — Escape `%`, `_`, and special chars in the master-items query parameter before interpolation.
+2. **Replace `Math.random()`** — Use `require('crypto').randomBytes(4).toString('hex').toUpperCase().slice(0,6)` for invite codes.
+3. **Restrict CORS** — Replace `*` with your actual Netlify domain.
+4. **Add input validation** — Max lengths for name (100), note (500), bulk text (5000 chars / 50 items).
+5. **Fail fast on missing service key** — Throw an error if `SUPABASE_SERVICE_KEY` is not set.
+6. **Add rate limiting** — Use Netlify's built-in rate limiting or add a simple per-user request counter.
+
+#### Short-term (Quality)
+
+7. **Add token refresh** — Use Supabase's `onAuthStateChange` to auto-refresh tokens before expiry.
+8. **Fix race condition** — Use Supabase's `.rpc()` for atomic increment on quantity merge.
+9. **Add null checks** — Toggle endpoint should return 404 if item not found.
+10. **Remove dead code** — Delete `App.js` or move to a `legacy/` folder.
+11. **Add CSP header** — `Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co`
+
+#### Long-term (Maintainability)
+
+12. **Split frontend** — Extract JS into `app.js`, CSS into `app.css`.
+13. **Split API routes** — Use separate function files or a router library.
+14. **Add tests** — At minimum, test the API routes with mock Supabase responses.
+15. **Add TypeScript** — Even just JSDoc types would improve developer experience.
+16. **Add pagination** — Limit to 100 items per page with cursor-based pagination.
+
+---
+
+### Review Summary
+
+| Severity | Count |
+|----------|-------|
+| 🔴 Critical | 4 |
+| 🟠 High | 6 |
+| 🟡 Medium | 6 |
+| 🟢 Low | 4 |
+| Code Quality | 13 |
+| **Total** | **33** |
+
+The most urgent fixes are the **SQL injection in search** (#1), **weak invite code generation** (#6/#14), and **wildcard CORS** (#8). These can be fixed in under an hour and significantly improve the security posture.

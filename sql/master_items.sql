@@ -177,3 +177,14 @@ INSERT INTO master_items (name, aliases, category, unit, default_quantity, popul
 ('Hand Wash', '{handwash,hand wash}', 'Personal Care', 'ml', 250, 65),
 ('Moisturizer', '{cream,moisturizer,lotion}', 'Personal Care', 'ml', 100, 50),
 ('Sunscreen', '{sunscreen}', 'Personal Care', 'ml', 50, 40);
+
+
+-- Function to atomically increment popular_score when an existing item is re-added
+CREATE OR REPLACE FUNCTION increment_popular_score(item_name TEXT)
+RETURNS void AS $$
+BEGIN
+  UPDATE master_items
+  SET popular_score = popular_score + 1
+  WHERE lower(name) = lower(item_name);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

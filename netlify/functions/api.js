@@ -24,6 +24,34 @@ function resp(statusCode, data) {
   return { statusCode, headers, body: JSON.stringify(data) };
 }
 
+// Add new items to master_items catalog (fire-and-forget, won't block the response)
+async function addToMasterCatalog(admin, items) {
+  try {
+    for (const item of items) {
+      const name = item.name.trim();
+      if (!name) continue;
+      // Check if already exists (case-insensitive)
+      const { data: existing } = await admin.from('master_items')
+        .select('id').ilike('name', name).limit(1);
+      if (existing && existing.length > 0) {
+        // Bump popular_score for existing item
+        await admin.rpc('increment_popular_score', { item_name: name }).catch(() => {});
+        continue;
+      }
+      await admin.from('master_items').insert({
+        name,
+        category: item.category || 'Other',
+        unit: item.unit || 'pcs',
+        default_quantity: item.quantity || 1,
+        popular_score: 1
+      });
+    }
+  } catch (e) {
+    // Non-critical — don't fail the request if catalog update fails
+    console.warn('master_items insert failed:', e.message);
+  }
+}
+
 const DEFAULT_ITEMS = [
   {name:'Rice (Basmati)',category:'Produce',quantity:5},{name:'Wheat Flour (Atta)',category:'Produce',quantity:5},
   {name:'Toor Dal',category:'Produce',quantity:1},{name:'Moong Dal',category:'Produce',quantity:1},
@@ -180,41 +208,51 @@ exports.handler = async (event) => {
 
     // POST /items
     if (path === 'items' && method === 'POST') {
+      const admin = getAdmin();
       // Check for duplicate (case-insensitive)
-      const { data: existing } = await getAdmin().from('items')
+      const { data: existing } = await admin.from('items')
         .select('*').eq('family_id', family_id).ilike('name', body.name.trim()).limit(1);
       if (existing && existing.length > 0) {
         const item = existing[0];
         const newQty = item.quantity + (body.quantity || 1);
-        const { data, error } = await getAdmin().from('items')
+        const { data, error } = await admin.from('items')
           .update({ quantity: newQty, in_stock: true }).eq('id', item.id).select();
         if (error) throw error;
+        // Still track in master catalog
+        addToMasterCatalog(admin, [{ name: body.name.trim(), category: item.category, unit: item.unit, quantity: item.quantity }]);
         return resp(200, { ...data[0], merged: true });
       }
-      const { data: max } = await getAdmin().from('items').select('sort_order')
+      const { data: max } = await admin.from('items').select('sort_order')
         .eq('family_id', family_id).order('sort_order', { ascending: false }).limit(1);
       const nextOrder = (max && max.length > 0 ? max[0].sort_order : 0) + 1;
-      const { data, error } = await getAdmin().from('items').insert({
+      const newItem = {
         name: body.name.trim(), category: body.category || 'Other', quantity: body.quantity || 1,
         in_stock: true, sort_order: nextOrder, family_id, added_by: display_name,
         note: body.note || null, unit: body.unit || 'pcs'
-      }).select();
+      };
+      const { data, error } = await admin.from('items').insert(newItem).select();
       if (error) throw error;
+      // Add to master catalog for future autocomplete
+      addToMasterCatalog(admin, [{ name: newItem.name, category: newItem.category, unit: newItem.unit, quantity: newItem.quantity }]);
       return resp(201, data[0]);
     }
 
     // POST /items/bulk
     if (path === 'items/bulk' && method === 'POST') {
-      const { data: max } = await getAdmin().from('items').select('sort_order')
+      const admin = getAdmin();
+      const { data: max } = await admin.from('items').select('sort_order')
         .eq('family_id', family_id).order('sort_order', { ascending: false }).limit(1);
       let nextOrder = (max && max.length > 0 ? max[0].sort_order : 0) + 1;
       const lines = body.items.split('\n').map(l => l.trim().replace(/^-\s*/, '')).filter(Boolean);
+      const cat = body.category || 'Other';
       const rows = lines.map(name => ({
-        name, category: body.category || 'Other', quantity: 1,
+        name, category: cat, quantity: 1,
         in_stock: true, sort_order: nextOrder++, family_id, added_by: display_name
       }));
-      const { data, error } = await getAdmin().from('items').insert(rows).select();
+      const { data, error } = await admin.from('items').insert(rows).select();
       if (error) throw error;
+      // Add all bulk items to master catalog
+      addToMasterCatalog(admin, rows.map(r => ({ name: r.name, category: r.category, unit: 'pcs', quantity: 1 })));
       return resp(201, data);
     }
 
