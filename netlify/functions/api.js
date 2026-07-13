@@ -24,37 +24,66 @@ function resp(statusCode, data) {
   return { statusCode, headers, body: JSON.stringify(data) };
 }
 
-// Fetch popular items from master_items table to seed new families
-async function getDefaultItems(admin) {
-  const { data, error } = await admin.from('master_items')
-    .select('name, category, default_quantity')
-    .gte('popular_score', 75)
-    .order('popular_score', { ascending: false })
-    .limit(60);
-  if (error || !data || data.length === 0) {
-    // Fallback if master_items table is empty or unavailable
-    return [
-      {name:'Rice (Basmati)',category:'Grains & Flours',quantity:5},
-      {name:'Wheat Flour (Atta)',category:'Grains & Flours',quantity:5},
-      {name:'Toor Dal (Arhar)',category:'Pulses & Lentils',quantity:1},
-      {name:'Moong Dal (Split)',category:'Pulses & Lentils',quantity:1},
-      {name:'Onions',category:'Vegetables',quantity:2},
-      {name:'Tomatoes',category:'Vegetables',quantity:1},
-      {name:'Potatoes (Aloo)',category:'Vegetables',quantity:2},
-      {name:'Milk (Full Cream)',category:'Dairy',quantity:2},
-      {name:'Sugar (Cheeni)',category:'Sweeteners & Baking',quantity:2},
-      {name:'Salt (Namak)',category:'Sweeteners & Baking',quantity:1},
-      {name:'Tea (Chai Patti)',category:'Beverages',quantity:1},
-      {name:'Turmeric Powder (Haldi)',category:'Spices - Powder',quantity:1},
-      {name:'Red Chilli Powder',category:'Spices - Powder',quantity:1}
-    ];
+// Add new items to master_items catalog (fire-and-forget, won't block the response)
+async function addToMasterCatalog(admin, items) {
+  try {
+    for (const item of items) {
+      const name = item.name.trim();
+      if (!name) continue;
+      // Check if already exists (case-insensitive)
+      const { data: existing } = await admin.from('master_items')
+        .select('id').ilike('name', name).limit(1);
+      if (existing && existing.length > 0) {
+        // Bump popular_score for existing item
+        await admin.rpc('increment_popular_score', { item_name: name }).catch(() => {});
+        continue;
+      }
+      await admin.from('master_items').insert({
+        name,
+        category: item.category || 'Other',
+        unit: item.unit || 'pcs',
+        default_quantity: item.quantity || 1,
+        popular_score: 1
+      });
+    }
+  } catch (e) {
+    // Non-critical — don't fail the request if catalog update fails
+    console.warn('master_items insert failed:', e.message);
   }
-  return data.map(it => ({
-    name: it.name,
-    category: it.category,
-    quantity: parseInt(it.default_quantity) || 1
-  }));
 }
+
+const DEFAULT_ITEMS = [
+  {name:'Rice (Basmati)',category:'Produce',quantity:5},{name:'Wheat Flour (Atta)',category:'Produce',quantity:5},
+  {name:'Toor Dal',category:'Produce',quantity:1},{name:'Moong Dal',category:'Produce',quantity:1},
+  {name:'Chana Dal',category:'Produce',quantity:1},{name:'Urad Dal',category:'Produce',quantity:1},
+  {name:'Masoor Dal',category:'Produce',quantity:1},{name:'Rajma',category:'Produce',quantity:1},
+  {name:'Chole (Chickpeas)',category:'Produce',quantity:1},{name:'Poha',category:'Produce',quantity:1},
+  {name:'Suji (Semolina)',category:'Produce',quantity:1},{name:'Besan (Gram Flour)',category:'Produce',quantity:1},
+  {name:'Onions',category:'Produce',quantity:2},{name:'Tomatoes',category:'Produce',quantity:1},
+  {name:'Potatoes',category:'Produce',quantity:2},{name:'Green Chillies',category:'Produce',quantity:1},
+  {name:'Ginger',category:'Produce',quantity:1},{name:'Garlic',category:'Produce',quantity:1},
+  {name:'Coriander Leaves',category:'Produce',quantity:1},{name:'Curry Leaves',category:'Produce',quantity:1},
+  {name:'Spinach (Palak)',category:'Produce',quantity:1},{name:'Cauliflower',category:'Produce',quantity:1},
+  {name:'Capsicum',category:'Produce',quantity:1},{name:'Okra (Bhindi)',category:'Produce',quantity:1},
+  {name:'Milk',category:'Dairy',quantity:2},{name:'Curd (Dahi)',category:'Dairy',quantity:1},
+  {name:'Paneer',category:'Dairy',quantity:1},{name:'Butter',category:'Dairy',quantity:1},{name:'Ghee',category:'Dairy',quantity:1},
+  {name:'Turmeric Powder (Haldi)',category:'Other',quantity:1},{name:'Red Chilli Powder',category:'Other',quantity:1},
+  {name:'Coriander Powder',category:'Other',quantity:1},{name:'Cumin Powder (Jeera)',category:'Other',quantity:1},
+  {name:'Garam Masala',category:'Other',quantity:1},{name:'Cumin Seeds',category:'Other',quantity:1},
+  {name:'Mustard Seeds',category:'Other',quantity:1},{name:'Hing (Asafoetida)',category:'Other',quantity:1},
+  {name:'Salt',category:'Other',quantity:1},{name:'Sugar',category:'Other',quantity:1},
+  {name:'Mustard Oil',category:'Other',quantity:1},{name:'Sunflower Oil',category:'Other',quantity:1},
+  {name:'Tamarind (Imli)',category:'Other',quantity:1},{name:'Jaggery (Gud)',category:'Other',quantity:1},
+  {name:'Tea (Chai Patti)',category:'Beverages',quantity:1},{name:'Coffee Powder',category:'Beverages',quantity:1},
+  {name:'Biscuits',category:'Snacks',quantity:2},{name:'Maggi Noodles',category:'Snacks',quantity:4},
+  {name:'Papad',category:'Snacks',quantity:1},{name:'Pickle (Achar)',category:'Snacks',quantity:1},
+  {name:'Cashews (Kaju)',category:'Snacks',quantity:1},{name:'Almonds (Badam)',category:'Snacks',quantity:1},
+  {name:'Bread',category:'Bakery',quantity:1},{name:'Peas',category:'Frozen',quantity:1},
+  {name:'Dish Soap (Vim)',category:'Household',quantity:1},{name:'Detergent',category:'Household',quantity:1},
+  {name:'Floor Cleaner',category:'Household',quantity:1},{name:'Dustbin Bags',category:'Household',quantity:1},
+  {name:'Soap',category:'Personal Care',quantity:2},{name:'Shampoo',category:'Personal Care',quantity:1},
+  {name:'Toothpaste',category:'Personal Care',quantity:1}
+];
 
 exports.handler = async (event) => {
   const path = event.path.replace('/.netlify/functions/api/', '').replace('/api/', '');
@@ -85,9 +114,62 @@ exports.handler = async (event) => {
       return resp(200, { user: { id: user.id, email: user.email }, memberships: memberships || [] });
     }
 
+    // GET /master-items?q=... — search master catalog
+    if (path === 'master-items' && method === 'GET') {
+      const q = event.queryStringParameters?.q || '';
+      if (q.length < 2) return resp(200, []);
+      // Sanitize query for PostgREST filter (commas and special chars break .or() parsing)
+      const safeQ = q.replace(/[,{}().\\]/g, '').trim();
+      if (!safeQ || safeQ.length < 2) return resp(200, []);
+      const admin = getAdmin();
+      // Try name search first (most reliable), then try with aliases
+      let data = null;
+      let error = null;
+      try {
+        const res = await admin.from('master_items')
+          .select('name, category, unit, default_quantity')
+          .ilike('name', `%${safeQ}%`)
+          .order('popular_score', { ascending: false })
+          .limit(8);
+        data = res.data;
+        error = res.error;
+      } catch(e) {
+        error = e;
+      }
+      // If name search returned few results, also try aliases
+      if (!error && data && data.length < 8) {
+        try {
+          const res2 = await admin.from('master_items')
+            .select('name, category, unit, default_quantity')
+            .contains('aliases', [safeQ.toLowerCase()])
+            .order('popular_score', { ascending: false })
+            .limit(8);
+          if (res2.data && res2.data.length > 0) {
+            const existingNames = new Set(data.map(d => d.name));
+            for (const item of res2.data) {
+              if (!existingNames.has(item.name)) data.push(item);
+            }
+          }
+        } catch(e) { /* aliases search is optional */ }
+      }
+      if (error) {
+        console.error('master_items search error:', error);
+        return resp(200, []); // Return empty instead of 500
+      }
+      return resp(200, data || []);
+    }
+
     // POST /auth/family/create
     if (path === 'auth/family/create' && method === 'POST') {
       const admin = getAdmin();
+
+      // Limit: user can only create one family
+      const { data: created } = await admin.from('families')
+        .select('id').eq('created_by', user.id);
+      if (created && created.length > 0) {
+        return resp(400, { error: 'You can only create one family. Ask others to join using your invite code.' });
+      }
+
       const invite_code = Math.random().toString(36).substring(2, 8).toUpperCase();
       const { data: family, error: fErr } = await admin.from('families')
         .insert({ name: body.family_name, invite_code, created_by: user.id }).select().single();
@@ -97,11 +179,8 @@ exports.handler = async (event) => {
         .insert({ family_id: family.id, user_id: user.id, display_name: body.display_name, role: 'admin' });
       if (mErr) throw mErr;
 
-      // Seed family with popular items from master_items table
-      const defaultItems = await getDefaultItems(admin);
-      const rows = defaultItems.map((it, i) => ({
-        name: it.name, category: it.category, quantity: it.quantity,
-        family_id: family.id, in_stock: true, sort_order: i + 1, added_by: body.display_name
+      const rows = DEFAULT_ITEMS.map((it, i) => ({
+        ...it, family_id: family.id, in_stock: true, sort_order: i + 1, added_by: body.display_name
       }));
       await admin.from('items').insert(rows);
 
@@ -136,23 +215,6 @@ exports.handler = async (event) => {
       return resp(200, data);
     }
 
-    // GET /master-items/search?q=...  — autocomplete suggestions from master catalog
-    if (path === 'master-items/search' && method === 'GET') {
-      const params = new URLSearchParams(event.rawQuery || '');
-      const q = (params.get('q') || '').trim().toLowerCase();
-      if (!q || q.length < 2) return resp(200, []);
-
-      const admin = getAdmin();
-      // Search by name (ilike) or aliases array overlap
-      const { data, error } = await admin.from('master_items')
-        .select('id, name, aliases, category, unit, default_quantity, popular_score')
-        .or(`name.ilike.%${q}%,aliases.cs.{${q}}`)
-        .order('popular_score', { ascending: false })
-        .limit(10);
-      if (error) throw error;
-      return resp(200, data || []);
-    }
-
     // ── ITEMS — resolve active family ────────────────────────────────
     const { data: allMemberships } = await getAdmin().from('family_members')
       .select('family_id, display_name').eq('user_id', user.id).order('joined_at', { ascending: true });
@@ -178,29 +240,51 @@ exports.handler = async (event) => {
 
     // POST /items
     if (path === 'items' && method === 'POST') {
-      const { data: max } = await getAdmin().from('items').select('sort_order')
+      const admin = getAdmin();
+      // Check for duplicate (case-insensitive)
+      const { data: existing } = await admin.from('items')
+        .select('*').eq('family_id', family_id).ilike('name', body.name.trim()).limit(1);
+      if (existing && existing.length > 0) {
+        const item = existing[0];
+        const newQty = item.quantity + (body.quantity || 1);
+        const { data, error } = await admin.from('items')
+          .update({ quantity: newQty, in_stock: true }).eq('id', item.id).select();
+        if (error) throw error;
+        // Still track in master catalog
+        addToMasterCatalog(admin, [{ name: body.name.trim(), category: item.category, unit: item.unit, quantity: item.quantity }]);
+        return resp(200, { ...data[0], merged: true });
+      }
+      const { data: max } = await admin.from('items').select('sort_order')
         .eq('family_id', family_id).order('sort_order', { ascending: false }).limit(1);
       const nextOrder = (max && max.length > 0 ? max[0].sort_order : 0) + 1;
-      const { data, error } = await getAdmin().from('items').insert({
-        name: body.name, category: body.category || 'Other', quantity: body.quantity || 1,
-        in_stock: true, sort_order: nextOrder, family_id, added_by: display_name
-      }).select();
+      const newItem = {
+        name: body.name.trim(), category: body.category || 'Other', quantity: body.quantity || 1,
+        in_stock: true, sort_order: nextOrder, family_id, added_by: display_name,
+        note: body.note || null, unit: body.unit || 'pcs'
+      };
+      const { data, error } = await admin.from('items').insert(newItem).select();
       if (error) throw error;
+      // Add to master catalog for future autocomplete
+      addToMasterCatalog(admin, [{ name: newItem.name, category: newItem.category, unit: newItem.unit, quantity: newItem.quantity }]);
       return resp(201, data[0]);
     }
 
     // POST /items/bulk
     if (path === 'items/bulk' && method === 'POST') {
-      const { data: max } = await getAdmin().from('items').select('sort_order')
+      const admin = getAdmin();
+      const { data: max } = await admin.from('items').select('sort_order')
         .eq('family_id', family_id).order('sort_order', { ascending: false }).limit(1);
       let nextOrder = (max && max.length > 0 ? max[0].sort_order : 0) + 1;
       const lines = body.items.split('\n').map(l => l.trim().replace(/^-\s*/, '')).filter(Boolean);
+      const cat = body.category || 'Other';
       const rows = lines.map(name => ({
-        name, category: body.category || 'Other', quantity: 1,
+        name, category: cat, quantity: 1,
         in_stock: true, sort_order: nextOrder++, family_id, added_by: display_name
       }));
-      const { data, error } = await getAdmin().from('items').insert(rows).select();
+      const { data, error } = await admin.from('items').insert(rows).select();
       if (error) throw error;
+      // Add all bulk items to master catalog
+      addToMasterCatalog(admin, rows.map(r => ({ name: r.name, category: r.category, unit: 'pcs', quantity: 1 })));
       return resp(201, data);
     }
 
@@ -213,6 +297,9 @@ exports.handler = async (event) => {
       if (body.category !== undefined) updates.category = body.category;
       if (body.quantity !== undefined) updates.quantity = body.quantity;
       if (body.in_stock !== undefined) updates.in_stock = body.in_stock;
+      if (body.note !== undefined) updates.note = body.note;
+      if (body.sort_order !== undefined) updates.sort_order = body.sort_order;
+      if (body.unit !== undefined) updates.unit = body.unit;
       const { data, error } = await getAdmin().from('items').update(updates)
         .eq('id', id).eq('family_id', family_id).select();
       if (error) throw error;
