@@ -1252,7 +1252,12 @@ function onSearchInput(value) {
   clearTimeout(masterSearchTimer);
   masterSearchTimer = setTimeout(async () => {
     const data = await api(`/api/master-items?q=${encodeURIComponent(q)}`);
-    if (!data || !Array.isArray(data)) { sugBox.style.display = 'none'; return; }
+    if (!data || !Array.isArray(data)) {
+      // API failed, but still show "Add as custom item" option
+      lastMasterResults = [];
+      renderSuggestions(q);
+      return;
+    }
 
     // Filter out items already in the family list
     const existingNames = new Set(items.map(i => i.name.toLowerCase()));
