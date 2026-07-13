@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://hgnyfhilnbcoemxfpozm.supabase.co">
 <link rel="dns-prefetch" href="https://hgnyfhilnbcoemxfpozm.supabase.co">
 <link rel="manifest" href="/manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <title>Grocery List</title>
 <style>
 :root { --bg: #f5f5f5; --card: #fff; --text: #333; --muted: #666; --border: #ddd; --green: #4CAF50; --orange: #ff9800; --red: #f44336; --blue: #2196F3; }
@@ -157,19 +158,54 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 .swipe-bg { position: absolute; top: 0; bottom: 0; width: 100%; display: flex; align-items: center; padding: 0 16px; font-size: .8rem; color: #fff; font-weight: 600; pointer-events: none; opacity: 0; transition: opacity .2s; }
 .swipe-bg.left { right: 0; justify-content: flex-end; background: linear-gradient(to left, var(--orange), transparent); }
 .swipe-bg.right { left: 0; justify-content: flex-start; background: linear-gradient(to right, var(--green), transparent); }
-#autocomplete-list > div:hover { background: var(--bg); }
+.pull-indicator { text-align: center; color: var(--muted); font-size: .8rem; padding: 8px; margin: -12px 0 8px; transition: opacity .2s; opacity: 0; }
+.pull-indicator.visible { opacity: 1; }
+.confirm-modal .modal-content { text-align: center; }
+.confirm-modal .item-name { font-weight: 600; color: var(--red); margin: 8px 0 16px; font-size: 1.1rem; }
+.item .note { font-size: .7rem; color: var(--muted); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shop-controls { display: flex; gap: 6px; margin-bottom: 10px; }
+.shop-controls button { padding: 8px 12px; border: none; border-radius: 6px; font-size: .8rem; cursor: pointer; background: var(--border); color: var(--text); }
+.shop-controls button:active { transform: scale(.95); }
+.voice-confirm { background: var(--card); border: 2px solid var(--green); border-radius: 10px; padding: 14px; margin-bottom: 10px; animation: slideIn .3s ease; }
+.voice-confirm .heard { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+.voice-confirm .btns { display: flex; gap: 6px; }
+.voice-confirm .btns button { flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: .85rem; cursor: pointer; color: #fff; }
+.btn-move-top { background: var(--blue); color: #fff; font-size: .7rem !important; padding: 4px 6px !important; }
+.autocomplete { position: relative; }
+.autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.15); z-index: 1100; max-height: 200px; overflow-y: auto; display: none; }
+.autocomplete-list.show { display: block; }
+.autocomplete-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; cursor: pointer; font-size: .9rem; border-bottom: 1px solid var(--border); transition: background .1s; }
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover, .autocomplete-item:active { background: var(--bg); }
+.autocomplete-item .ac-name { font-weight: 500; }
+.autocomplete-item .ac-meta { font-size: .7rem; color: var(--muted); }
 #search-suggestions { background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
-#search-suggestions .suggestion-section { padding: 6px 12px; font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; background: var(--bg); }
-#search-suggestions .suggestion-item { display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); gap: 10px; transition: background .15s; }
-#search-suggestions .suggestion-item:last-child { border-bottom: none; }
-#search-suggestions .suggestion-item:active { background: var(--bg); }
-#search-suggestions .suggestion-item .s-info { flex: 1; min-width: 0; }
-#search-suggestions .suggestion-item .s-name { font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#search-suggestions .suggestion-item .s-cat { font-size: .7rem; color: var(--muted); }
-#search-suggestions .suggestion-item .s-add { background: var(--green); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: .8rem; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
-#search-suggestions .suggestion-item .s-add:active { transform: scale(.93); }
-#search-suggestions .suggestion-custom { display: flex; align-items: center; padding: 10px 12px; gap: 10px; background: var(--bg); border-top: 1px solid var(--border); }
-#search-suggestions .suggestion-custom .s-add { background: var(--blue); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: .8rem; cursor: pointer; white-space: nowrap; }
+#search-suggestions .sug-section { padding: 6px 12px; font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; background: var(--bg); }
+#search-suggestions .sug-item { display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); gap: 10px; }
+#search-suggestions .sug-item:last-child { border-bottom: none; }
+#search-suggestions .sug-item:active { background: var(--bg); }
+#search-suggestions .sug-item .si-info { flex: 1; min-width: 0; }
+#search-suggestions .sug-item .si-name { font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#search-suggestions .sug-item .si-cat { font-size: .7rem; color: var(--muted); }
+#search-suggestions .sug-item .si-add { background: var(--green); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: .8rem; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+#search-suggestions .sug-item .si-add:active { transform: scale(.93); }
+#search-suggestions .sug-custom { display: flex; align-items: center; padding: 10px 12px; gap: 10px; background: var(--bg); border-top: 1px solid var(--border); }
+#search-suggestions .sug-custom .si-add { background: var(--blue); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: .8rem; cursor: pointer; white-space: nowrap; }
+.onboarding { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; overflow-y: auto; }
+.onboarding.show { display: flex; }
+.onboarding-step { display: none; flex-direction: column; align-items: center; max-width: 340px; width: 100%; animation: slideIn .3s ease; }
+.onboarding-step.active { display: flex; }
+.onboarding-step .emoji { font-size: 3.5rem; margin-bottom: 16px; }
+.onboarding-step h2 { font-size: 1.3rem; margin-bottom: 8px; }
+.onboarding-step p { font-size: .9rem; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+.onboarding-step .tip { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; font-size: .85rem; margin-bottom: 12px; width: 100%; text-align: left; }
+.onboarding-step .tip .tip-icon { margin-right: 8px; }
+.onboarding-dots { display: flex; gap: 8px; margin: 20px 0; }
+.onboarding-dots .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background .2s; }
+.onboarding-dots .dot.active { background: var(--green); }
+.onboarding-btn { padding: 14px 32px; background: var(--green); color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; min-width: 200px; }
+.onboarding-btn:active { transform: scale(.97); }
+.onboarding-skip { background: none; border: none; color: var(--muted); font-size: .85rem; cursor: pointer; margin-top: 12px; padding: 8px; }
 </style>
 </head>
 <body>
@@ -218,16 +254,59 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 <div class="offline-bar" id="offline-bar">📡 Offline — changes will sync when back online</div>
 <div class="notif-bar" id="notif"></div>
 
+<!-- ONBOARDING -->
+<div class="onboarding" id="onboarding">
+  <div class="onboarding-step active" id="ob-step-0">
+    <div class="emoji">🛒</div>
+    <h2>Welcome to Grocery List!</h2>
+    <p>Your family shopping list — synced across all devices in real-time.</p>
+    <div class="tip"><span class="tip-icon">👨‍👩‍👧</span> Everyone in your family sees the same list instantly</div>
+    <div class="tip"><span class="tip-icon">📡</span> Works offline too — syncs when you're back online</div>
+  </div>
+  <div class="onboarding-step" id="ob-step-1">
+    <div class="emoji">👆</div>
+    <h2>Quick Gestures</h2>
+    <p>Navigate your list faster with these shortcuts:</p>
+    <div class="tip"><span class="tip-icon">👈</span> <b>Swipe left</b> on an item → mark as "Out of stock"</div>
+    <div class="tip"><span class="tip-icon">👉</span> <b>Swipe right</b> on an out-of-stock item → Restock it</div>
+    <div class="tip"><span class="tip-icon">⬇️</span> <b>Pull down</b> from the top → Refresh the list</div>
+  </div>
+  <div class="onboarding-step" id="ob-step-2">
+    <div class="emoji">🛖</div>
+    <h2>Shopping Mode</h2>
+    <p>When you're at the store, switch to Shopping Mode:</p>
+    <div class="tip"><span class="tip-icon">✅</span> Check off items as you pick them up</div>
+    <div class="tip"><span class="tip-icon">🔄</span> Hit "Done" to restock all checked items at once</div>
+    <div class="tip"><span class="tip-icon">🔗</span> Share your list via WhatsApp or any app</div>
+  </div>
+  <div class="onboarding-step" id="ob-step-3">
+    <div class="emoji">🎤</div>
+    <h2>Pro Tips</h2>
+    <p>Power features to save you time:</p>
+    <div class="tip"><span class="tip-icon">🎤</span> <b>Voice Input</b> — say "Add 2 Milk to Dairy"</div>
+    <div class="tip"><span class="tip-icon">📝</span> <b>Bulk Add</b> — paste a list, one item per line</div>
+    <div class="tip"><span class="tip-icon">↑</span> <b>Move to Top</b> — prioritize items you need first</div>
+    <div class="tip"><span class="tip-icon">📝</span> <b>Notes</b> — add brand or size info to any item</div>
+  </div>
+  <div class="onboarding-dots">
+    <div class="dot active" data-step="0"></div>
+    <div class="dot" data-step="1"></div>
+    <div class="dot" data-step="2"></div>
+    <div class="dot" data-step="3"></div>
+  </div>
+  <button class="onboarding-btn" id="ob-next" onclick="nextOnboardingStep()">Next →</button>
+  <button class="onboarding-skip" onclick="dismissOnboarding()">Skip tutorial</button>
+</div>
+
 <div class="page-tabs">
   <button class="page-tab active" id="tab-btn-home" onclick="switchView('home')">📋 List</button>
-  <button class="page-tab" id="tab-btn-shop" onclick="switchView('shop')">🛖 Shop</button>
+  <button class="page-tab" id="tab-btn-shop" onclick="switchView('shop')">🛖 Shop <span id="shop-badge"></span></button>
 </div>
 
 <!-- HOME VIEW -->
 <div id="view-home">
-  <div style="position:relative">
-    <input class="search" id="main-search" placeholder="Search or add items..." oninput="onSearchInput(this.value)">
-  </div>
+  <div class="pull-indicator" id="pull-indicator">↓ Pull to refresh</div>
+  <input class="search" id="main-search" placeholder="Search or add items..." oninput="onSearchInput(this.value)">
   <div id="search-suggestions" style="display:none"></div>
   <div class="cat-tabs" id="cat-tabs"></div>
   <div id="list"></div>
@@ -236,8 +315,27 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 <!-- SHOP VIEW -->
 <div id="view-shop" style="display:none">
   <p style="color:var(--muted);font-size:.85rem;margin-bottom:10px">Check off items as you shop. Hit "Done" to restock.</p>
+  <div class="shop-controls">
+    <button onclick="shopSelectAll(true)">☑ Select All</button>
+    <button onclick="shopSelectAll(false)">☐ Deselect All</button>
+  </div>
   <div id="shop-list"></div>
   <button class="shopping-done" onclick="doneShop()">✅ Done Shopping - Restock Checked</button>
+</div>
+
+<!-- VOICE CONFIRM MODAL -->
+<div class="modal" id="voiceConfirmModal">
+  <div class="modal-content">
+    <h3>🎤 Voice Input</h3>
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">I heard:</p>
+    <div id="voice-heard" style="font-size:1.1rem;font-weight:600;margin-bottom:12px;color:var(--green)"></div>
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:4px">Adding as:</p>
+    <div id="voice-parsed" style="font-size:.9rem;margin-bottom:12px"></div>
+    <div class="btns">
+      <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('voiceConfirmModal')">Cancel</button>
+      <button type="button" style="background:var(--green);color:#fff" onclick="confirmVoiceAdd()">Add ✓</button>
+    </div>
+  </div>
 </div>
 
 <!-- ABOUT MODAL -->
@@ -256,14 +354,18 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 <div class="modal" id="addModal">
   <div class="modal-content">
     <h3>➕ Add Item</h3>
-    <div style="position:relative">
-      <input id="inp-name" placeholder="Item name..." autocomplete="off" oninput="searchMaster(this.value)">
-      <div id="autocomplete-list" style="position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;z-index:10;display:none;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
+    <div class="autocomplete">
+      <input id="inp-name" placeholder="Item name..." autocomplete="off" oninput="onNameInput()">
+      <div class="autocomplete-list" id="ac-list"></div>
     </div>
+    <input id="inp-note" placeholder="Note (optional, e.g. Brand: Aashirvaad)" autocomplete="off">
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input id="inp-qty" type="number" min="1" value="1" placeholder="Qty" style="width:70px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg);color:var(--text)">
+      <input id="inp-qty" type="number" min="0.1" step="0.1" value="1" placeholder="Qty" style="width:70px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg);color:var(--text)">
+      <select id="inp-unit" style="width:80px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg);color:var(--text)">
+        <option value="pcs">pcs</option><option value="kg">kg</option><option value="g">g</option><option value="L">L</option><option value="ml">ml</option><option value="packet">packet</option><option value="dozen">dozen</option><option value="bundle">bundle</option>
+      </select>
       <select id="inp-cat" style="flex:1">
-        <option>Grains & Flours</option><option>Pulses & Lentils</option><option>Spices - Whole</option><option>Spices - Powder</option><option>Oils & Ghee</option><option>Dairy</option><option>Vegetables</option><option>Fruits</option><option>Dry Fruits & Nuts</option><option>Beverages</option><option>Snacks</option><option>Pickles & Preserves</option><option>Sweeteners & Baking</option><option>Frozen</option><option>Bakery</option><option>Household</option><option>Personal Care</option><option>Baby Care</option><option>Pooja & Misc</option><option>Meat & Seafood</option><option>Condiments</option><option selected>Other</option>
+        <option>Produce</option><option>Dairy</option><option>Meat</option><option>Bakery</option><option>Frozen</option><option>Beverages</option><option>Snacks</option><option>Household</option><option>Personal Care</option><option selected>Other</option>
       </select>
     </div>
     <div class="btns">
@@ -278,7 +380,7 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
     <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">One item per line</p>
     <textarea id="bulk-text" placeholder="Milk&#10;Eggs&#10;Bread&#10;Butter"></textarea>
     <select id="bulk-cat">
-      <option>Grains & Flours</option><option>Pulses & Lentils</option><option>Spices - Whole</option><option>Spices - Powder</option><option>Oils & Ghee</option><option>Dairy</option><option>Vegetables</option><option>Fruits</option><option>Dry Fruits & Nuts</option><option>Beverages</option><option>Snacks</option><option>Pickles & Preserves</option><option>Sweeteners & Baking</option><option>Frozen</option><option>Bakery</option><option>Household</option><option>Personal Care</option><option>Baby Care</option><option>Pooja & Misc</option><option>Meat & Seafood</option><option>Condiments</option><option selected>Other</option>
+      <option>Produce</option><option>Dairy</option><option>Meat</option><option>Bakery</option><option>Frozen</option><option>Beverages</option><option>Snacks</option><option>Household</option><option>Personal Care</option><option selected>Other</option>
     </select>
     <div class="btns">
       <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('bulkModal')">Cancel</button>
@@ -300,25 +402,62 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
   </div>
 </div>
 
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal confirm-modal" id="confirmDeleteModal">
+  <div class="modal-content">
+    <h3>🗑️ Delete Item?</h3>
+    <div class="item-name" id="confirm-del-name"></div>
+    <div class="btns">
+      <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('confirmDeleteModal')">Cancel</button>
+      <button type="button" style="background:var(--red);color:#fff" onclick="confirmDel()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT ITEM MODAL -->
+<div class="modal" id="editModal">
+  <div class="modal-content">
+    <h3>✏️ Edit Item</h3>
+    <input id="edit-name" placeholder="Item name..." autocomplete="off">
+    <input id="edit-note" placeholder="Note (optional)" autocomplete="off">
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input id="edit-qty" type="number" min="0.1" step="0.1" value="1" placeholder="Qty" style="width:70px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg);color:var(--text)">
+      <select id="edit-unit" style="width:80px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg);color:var(--text)">
+        <option value="pcs">pcs</option><option value="kg">kg</option><option value="g">g</option><option value="L">L</option><option value="ml">ml</option><option value="packet">packet</option><option value="dozen">dozen</option><option value="bundle">bundle</option>
+      </select>
+      <select id="edit-cat" style="flex:1">
+        <option>Produce</option><option>Dairy</option><option>Meat</option><option>Bakery</option><option>Frozen</option><option>Beverages</option><option>Snacks</option><option>Household</option><option>Personal Care</option><option>Other</option>
+      </select>
+    </div>
+    <div class="btns">
+      <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('editModal')">Cancel</button>
+      <button type="button" style="background:var(--green);color:#fff" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST (undo) -->
 <div class="toast" id="toast">
   <span id="toast-msg"></span>
-  <button onclick="undoDelete()">Undo</button>
+  <button onclick="undoLastDelete()">Undo</button>
 </div>
 
 <script>
 let items = [];
-let lastDeleted = null;
+let deletedHistory = [];
 let toastTimer = null;
 let activeCat = 'All';
 let recognition = null;
 let isOnline = navigator.onLine;
 let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+let voicePending = null;
 
-const catOrder = ['Grains & Flours','Pulses & Lentils','Spices - Whole','Spices - Powder','Oils & Ghee','Dairy','Vegetables','Fruits','Dry Fruits & Nuts','Beverages','Snacks','Pickles & Preserves','Sweeteners & Baking','Frozen','Bakery','Household','Personal Care','Baby Care','Pooja & Misc','Meat & Seafood','Condiments','Produce','Meat','Other'];
+const catOrder = ['Produce','Dairy','Meat','Bakery','Frozen','Beverages','Snacks','Household','Personal Care','Other'];
+const catEmoji = {Produce:'🥬',Dairy:'🥛',Meat:'🥩',Bakery:'🍞',Frozen:'🧊',Beverages:'☕',Snacks:'🍪',Household:'🧹','Personal Care':'🧴',Other:'📦'};
 let realtimeChannel = null;
 let activeFamilyId = localStorage.getItem('active_family_id') || null;
 let allFamilies = [];
+let supabaseClient = null;
 
 // ── QUICK WIN: Show cached data instantly ──────────────────────────
 (function renderCachedItems() {
@@ -326,7 +465,6 @@ let allFamilies = [];
   if (cached) {
     try {
       items = JSON.parse(cached);
-      // Defer render to after DOM is ready
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => render());
       } else {
@@ -336,7 +474,48 @@ let allFamilies = [];
   }
 })();
 
-function initRealtime() {}
+function initRealtime() {
+  if (!activeFamilyId) return;
+  // Clean up existing channel
+  if (realtimeChannel && supabaseClient) {
+    supabaseClient.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+  try {
+    const SUPABASE_URL = 'https://hgnyfhilnbcoemxfpozm.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbnlmaGlsbmJjb2VteGZwb3ptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MTYyNTgsImV4cCI6MjA5NzA5MjI1OH0.o8ZTGLDH0be9FAkRkKYcm-MNEOZ44GG1uZuKuZqQLj4';
+    if (!supabaseClient) {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
+    realtimeChannel = supabaseClient
+      .channel('items-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'items',
+        filter: `family_id=eq.${activeFamilyId}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const exists = items.find(i => i.id === payload.new.id);
+          if (!exists) { items.push(payload.new); render(); }
+        } else if (payload.eventType === 'UPDATE') {
+          const idx = items.findIndex(i => i.id === payload.new.id);
+          if (idx >= 0) { items[idx] = payload.new; const scrollY = window.scrollY; render(); window.scrollTo(0, scrollY); }
+        } else if (payload.eventType === 'DELETE') {
+          items = items.filter(i => i.id !== payload.old.id);
+          render();
+        }
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Realtime connected');
+        }
+      });
+  } catch(e) {
+    console.warn('Realtime init failed, falling back to polling', e);
+    realtimeChannel = null;
+  }
+}
 
 // Offline queue
 function updateOfflineStatus() {
@@ -396,6 +575,11 @@ function switchView(view) {
   document.getElementById('menu-home').classList.toggle('active-view', isHome);
   document.getElementById('menu-shop').classList.toggle('active-view', !isHome);
   if (!isHome) renderShop();
+}
+
+function updateShopBadge() {
+  const count = items.filter(i => !i.in_stock).length;
+  document.getElementById('shop-badge').textContent = count > 0 ? `(${count})` : '';
 }
 
 function openDrawer() {
@@ -497,6 +681,7 @@ async function load() {
     lastDataHash = JSON.stringify(data);
     localStorage.setItem('grocery_items', JSON.stringify(items));
     render();
+    initRealtime();
   }
   startPolling();
 }
@@ -536,7 +721,7 @@ function toggleFamilySwitcher() {
       </button>`;
     }).join('');
     html += `<button class="family-switch-item" onclick="drawerAction('add-family')" style="border-top:1px solid var(--border)">
-      <span>➕</span><span>Add Another Home</span>
+      <span>🔑</span><span>Join Another Family</span>
     </button>`;
     dd.innerHTML = html;
   }
@@ -568,7 +753,7 @@ function render() {
   let tabsHtml = `<div class="cat-tab${activeCat==='All'?' active':''}" onclick="selectCat('All')">All<span class="count">${filtered.length}</span></div>`;
   for (const cat of catOrder) {
     if (categories[cat]) {
-      tabsHtml += `<div class="cat-tab${activeCat===cat?' active':''}" onclick="selectCat('${cat}')">${cat}<span class="count">${categories[cat].length}</span></div>`;
+      tabsHtml += `<div class="cat-tab${activeCat===cat?' active':''}" onclick="selectCat('${cat}')">${catEmoji[cat]||''} ${cat}<span class="count">${categories[cat].length}</span></div>`;
     }
   }
   document.getElementById('cat-tabs').innerHTML = tabsHtml;
@@ -579,19 +764,21 @@ function render() {
   let html = '';
   for (const cat of visibleCats) {
     const catItems = categories[cat].sort((a,b) => b.in_stock - a.in_stock || a.name.localeCompare(b.name));
-    html += `<div class="category-group"><div class="category-title">${esc(cat)} (${catItems.length})</div>`;
+    html += `<div class="category-group"><div class="category-title">${catEmoji[cat]||'📦'} ${esc(cat)} (${catItems.length})</div>`;
     for (const it of catItems) {
       const cls = it.in_stock ? '' : ' out';
       const toggleLabel = it.in_stock ? 'Out' : '✓';
+      const noteHtml = it.note ? `<div class="note">📝 ${esc(it.note)}</div>` : '';
       html += `<div class="item${cls}" data-id="${it.id}">
         <div class="swipe-bg left">◀ Out</div>
         <div class="swipe-bg right">Restock ▶</div>
-        <div class="info"><div class="name">${esc(it.name)}</div>${it.added_by ? `<div style="font-size:.7rem;color:var(--muted)">Added by ${esc(it.added_by)}</div>` : ''}</div>
+        <div class="info" onclick="openEdit(${it.id})" style="cursor:pointer"><div class="name">${esc(it.name)}</div>${noteHtml}${it.added_by ? `<div style="font-size:.7rem;color:var(--muted)">Added by ${esc(it.added_by)}</div>` : ''}</div>
         <div class="qty-ctrl">
           <button onclick="changeQty(${it.id},${it.quantity - 1})">−</button>
-          <span>${it.quantity}</span>
+          <span>${it.quantity} ${esc(it.unit || 'pcs')}</span>
           <button onclick="changeQty(${it.id},${it.quantity + 1})">+</button>
         </div>
+        <button class="btn-move-top" onclick="moveToTop(${it.id})">↑</button>
         <button class="btn-toggle" onclick="toggle(${it.id})">${toggleLabel}</button>
         <button class="btn-del" onclick="del(${it.id})">✕</button>
       </div>`;
@@ -599,6 +786,7 @@ function render() {
     html += '</div>';
   }
   document.getElementById('list').innerHTML = html || '<p style="text-align:center;color:var(--muted);margin-top:40px">No items yet. Add something above!</p>';
+  updateShopBadge();
 }
 
 // CRUD
@@ -608,10 +796,23 @@ async function addItem() {
   haptic('success');
   const qty = parseInt(document.getElementById('inp-qty').value) || 1;
   const cat = document.getElementById('inp-cat').value;
-  const data = await api('/api/items', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name, quantity: qty, category: cat}) });
-  if (data) { items.push(data); render(); }
+  const note = document.getElementById('inp-note').value.trim();
+  const unit = document.getElementById('inp-unit').value;
+  const data = await api('/api/items', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name, quantity: qty, category: cat, note: note || undefined, unit}) });
+  if (data) {
+    if (data.merged) {
+      const idx = items.findIndex(i => i.id === data.id);
+      if (idx >= 0) items[idx] = data; else items.push(data);
+      showNotif(`✅ "${data.name}" already exists — quantity updated to ${data.quantity}`);
+    } else {
+      items.push(data);
+    }
+    render();
+  }
   document.getElementById('inp-name').value = '';
   document.getElementById('inp-qty').value = '1';
+  document.getElementById('inp-note').value = '';
+  document.getElementById('inp-unit').value = 'pcs';
   closeModal('addModal');
 }
 
@@ -632,27 +833,87 @@ async function changeQty(id, newQty) {
   if (data) { const idx = items.findIndex(i => i.id === id); if (idx >= 0) items[idx] = data; render(); }
 }
 
-async function del(id) {
+let pendingDeleteId = null;
+function del(id) {
+  haptic('medium');
+  const item = items.find(i => i.id === id);
+  pendingDeleteId = id;
+  document.getElementById('confirm-del-name').textContent = item.name;
+  document.getElementById('confirmDeleteModal').classList.add('show');
+}
+async function confirmDel() {
+  closeModal('confirmDeleteModal');
+  const id = pendingDeleteId;
+  if (!id) return;
   haptic('heavy');
   const el = document.querySelector(`.item[data-id="${id}"]`);
   const item = items.find(i => i.id === id);
   if (el) el.classList.add('removing');
-  lastDeleted = item;
+  deletedHistory.push(item);
+  if (deletedHistory.length > 10) deletedHistory.shift();
   await new Promise(r => setTimeout(r, 250));
   await api(`/api/items/${id}`, { method: 'DELETE' });
   items = items.filter(i => i.id !== id);
   render();
   showToast(`"${item.name}" deleted`);
+  pendingDeleteId = null;
 }
 
-async function undoDelete() {
-  if (!lastDeleted) return;
+async function undoLastDelete() {
+  if (!deletedHistory.length) return;
   haptic();
-  const { id, ...rest } = lastDeleted;
+  const item = deletedHistory.pop();
+  const { id, ...rest } = item;
   const data = await api('/api/items', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(rest) });
   if (data) { items.push(data); render(); }
-  lastDeleted = null;
   hideToast();
+}
+
+async function moveToTop(id) {
+  haptic();
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const minOrder = Math.min(...items.filter(i => i.category === item.category).map(i => i.sort_order)) - 1;
+  const data = await api(`/api/items/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ sort_order: minOrder }) });
+  if (data) { const idx = items.findIndex(i => i.id === id); if (idx >= 0) items[idx] = data; render(); showNotif(`↑ "${item.name}" moved to top`); }
+}
+
+// Edit item
+let editingId = null;
+function openEdit(id) {
+  haptic();
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  editingId = id;
+  document.getElementById('edit-name').value = item.name;
+  document.getElementById('edit-note').value = item.note || '';
+  document.getElementById('edit-qty').value = item.quantity;
+  document.getElementById('edit-unit').value = item.unit || 'pcs';
+  document.getElementById('edit-cat').value = item.category || 'Other';
+  document.getElementById('editModal').classList.add('show');
+  setTimeout(() => document.getElementById('edit-name').focus(), 100);
+}
+async function saveEdit() {
+  if (!editingId) return;
+  const name = document.getElementById('edit-name').value.trim();
+  if (!name) { document.getElementById('edit-name').style.animation = 'shake .4s'; setTimeout(() => document.getElementById('edit-name').style.animation = '', 400); return; }
+  haptic('success');
+  const updates = {
+    name,
+    note: document.getElementById('edit-note').value.trim() || null,
+    quantity: parseFloat(document.getElementById('edit-qty').value) || 1,
+    unit: document.getElementById('edit-unit').value,
+    category: document.getElementById('edit-cat').value
+  };
+  const data = await api(`/api/items/${editingId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates) });
+  if (data) {
+    const idx = items.findIndex(i => i.id === editingId);
+    if (idx >= 0) items[idx] = data;
+    render();
+    showNotif(`✅ "${name}" updated`);
+  }
+  editingId = null;
+  closeModal('editModal');
 }
 
 // Bulk
@@ -680,42 +941,158 @@ function voiceInput() {
   recognition.interimResults = false;
   recognition.lang = 'en-US';
   btn.classList.add('voice-active');
+  showNotif('🎤 Listening...');
   recognition.onresult = (e) => {
     const text = e.results[0][0].transcript;
     const match = text.match(/(?:add\s+)?(\d+)?\s*(.+?)(?:\s+to\s+(.+))?$/i);
     if (match) {
-      document.getElementById('inp-name').value = match[2].trim();
-      if (match[1]) document.getElementById('inp-qty').value = match[1];
-      if (match[3]) {
-        const sel = document.getElementById('inp-cat');
-        for (let opt of sel.options) { if (opt.value.toLowerCase() === match[3].trim().toLowerCase()) { sel.value = opt.value; break; } }
-      }
-      addItem();
+      const name = match[2].trim();
+      const qty = match[1] || '1';
+      const cat = match[3] ? match[3].trim() : null;
+      voicePending = { name, qty, cat };
+      document.getElementById('voice-heard').textContent = `"${text}"`;
+      document.getElementById('voice-parsed').innerHTML = `<b>${name}</b> ×${qty}${cat ? ` → ${cat}` : ''}`;
+      document.getElementById('voiceConfirmModal').classList.add('show');
     }
     haptic('success');
   };
-  recognition.onend = () => { document.querySelector('.hamburger').classList.remove('voice-active'); recognition = null; };
-  recognition.onerror = () => { document.querySelector('.hamburger').classList.remove('voice-active'); recognition = null; showNotif('⚠️ Voice failed'); };
+  recognition.onend = () => { btn.classList.remove('voice-active'); recognition = null; };
+  recognition.onerror = () => { btn.classList.remove('voice-active'); recognition = null; showNotif('⚠️ Voice failed'); };
   recognition.start();
 }
 
+async function confirmVoiceAdd() {
+  if (!voicePending) return;
+  closeModal('voiceConfirmModal');
+  document.getElementById('inp-name').value = voicePending.name;
+  document.getElementById('inp-qty').value = voicePending.qty;
+  if (voicePending.cat) {
+    const sel = document.getElementById('inp-cat');
+    for (let opt of sel.options) { if (opt.value.toLowerCase() === voicePending.cat.toLowerCase()) { sel.value = opt.value; break; } }
+  }
+  autoDetectUnit();
+  await addItem();
+  voicePending = null;
+}
+
+// Smart unit detection based on item name
+function autoDetectUnit() {
+  const name = document.getElementById('inp-name').value.toLowerCase();
+  const unitSel = document.getElementById('inp-unit');
+  const lItems = /\b(milk|oil|juice|water|buttermilk|lassi)\b/;
+  const mlItems = /\b(essence|drops|syrup|vinegar|sauce|ketchup)\b/;
+  const kgItems = /\b(rice|atta|flour|dal|sugar|salt|rajma|chole|chickpea|peas|potato|onion|tomato|wheat|maida|sooji|suji|besan|poha|jaggery|gud)\b/;
+  const gItems = /\b(powder|masala|haldi|turmeric|chilli|coriander|cumin|jeera|hing|asafoetida|saffron|kesar|ajwain|methi|seeds)\b/;
+  const bundleItems = /\b(coriander leaves|curry leaves|spinach|palak|methi|mint|pudina)\b/;
+  const dozenItems = /\b(eggs?|banana)\b/;
+  const packetItems = /\b(maggi|noodle|biscuit|chips|papad|bread|pav)\b/;
+
+  if (lItems.test(name)) unitSel.value = 'L';
+  else if (mlItems.test(name)) unitSel.value = 'ml';
+  else if (bundleItems.test(name)) unitSel.value = 'bundle';
+  else if (dozenItems.test(name)) unitSel.value = 'dozen';
+  else if (packetItems.test(name)) unitSel.value = 'packet';
+  else if (gItems.test(name)) unitSel.value = 'g';
+  else if (kgItems.test(name)) unitSel.value = 'kg';
+  else unitSel.value = 'pcs';
+}
+
+// Autocomplete from master items
+let acTimer = null;
+function onNameInput() {
+  autoDetectUnit();
+  clearTimeout(acTimer);
+  const q = document.getElementById('inp-name').value.trim();
+  if (q.length < 2) { hideAc(); return; }
+  acTimer = setTimeout(() => fetchMasterItems(q), 250);
+}
+
+async function fetchMasterItems(q) {
+  const data = await api(`/api/master-items?q=${encodeURIComponent(q)}`);
+  if (!data || !data.length) { hideAc(); return; }
+  window._acResults = data;
+  const list = document.getElementById('ac-list');
+  list.innerHTML = data.map((it, i) =>
+    `<div class="autocomplete-item" onclick="selectMasterIdx(${i})">
+      <span class="ac-name">${esc(it.name)}</span>
+      <span class="ac-meta">${esc(it.category)} \u00b7 ${it.default_quantity} ${esc(it.unit)}</span>
+    </div>`
+  ).join('');
+  list.classList.add('show');
+}
+
+function selectMasterIdx(i) {
+  const it = window._acResults[i];
+  if (!it) return;
+  document.getElementById('inp-name').value = it.name;
+  document.getElementById('inp-cat').value = it.category;
+  document.getElementById('inp-unit').value = it.unit;
+  document.getElementById('inp-qty').value = it.default_quantity;
+  hideAc();
+}
+
+function hideAc() {
+  document.getElementById('ac-list').classList.remove('show');
+}
+
 // Shopping mode
+function shopSelectAll(checked) {
+  haptic();
+  document.querySelectorAll('.shopping-item input').forEach(cb => {
+    cb.checked = checked;
+    cb.closest('.shopping-item').classList.toggle('checked', checked);
+  });
+}
+
 function renderShop() {
   const outItems = items.filter(it => !it.in_stock);
   let html = '';
   if (!outItems.length) { html = '<p style="color:var(--muted);text-align:center;margin-top:30px">All items in stock! 🎉</p>'; }
-  outItems.forEach(it => {
-    html += `<div class="shopping-item"><input type="checkbox" data-id="${it.id}"><div class="info"><div class="name">${esc(it.name)}</div><div style="font-size:.75rem;color:var(--muted)">${it.category} · Qty: ${it.quantity}</div></div></div>`;
-  });
+  // Group by category
+  const grouped = {};
+  outItems.forEach(it => { const c = it.category || 'Other'; if (!grouped[c]) grouped[c] = []; grouped[c].push(it); });
+  for (const cat of catOrder) {
+    if (!grouped[cat]) continue;
+    html += `<div style="font-size:.75rem;color:var(--muted);font-weight:600;margin:10px 0 4px;text-transform:uppercase">${catEmoji[cat]||''} ${cat}</div>`;
+    grouped[cat].forEach(it => {
+      html += `<div class="shopping-item"><input type="checkbox" data-id="${it.id}"><div class="info"><div class="name">${esc(it.name)}</div><div style="font-size:.75rem;color:var(--muted)">${it.note ? esc(it.note) + ' · ' : ''}${esc(it.unit || 'pcs')}: </div></div><input type="number" min="0.1" step="0.1" value="${it.quantity}" data-id="${it.id}" class="shop-qty" style="width:48px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:14px;text-align:center;background:var(--bg);color:var(--text)"></div>`;
+    });
+  }
   document.getElementById('shop-list').innerHTML = html;
-  document.querySelectorAll('.shopping-item input').forEach(cb => {
+  document.querySelectorAll('.shopping-item input[type="checkbox"]').forEach(cb => {
     cb.addEventListener('change', function() { haptic(); this.closest('.shopping-item').classList.toggle('checked', this.checked); });
+  });
+  document.querySelectorAll('.shop-qty').forEach(inp => {
+    inp.addEventListener('change', function() {
+      const id = parseInt(this.dataset.id);
+      const qty = parseInt(this.value) || 1;
+      changeQty(id, qty);
+    });
   });
 }
 
 async function doneShop() {
-  const ids = [...document.querySelectorAll('.shopping-item input:checked')].map(cb => parseInt(cb.dataset.id));
-  if (!ids.length) return;
+  const checked = [...document.querySelectorAll('.shopping-item input[type="checkbox"]:checked')];
+  if (!checked.length) return;
+  // Validate no zero quantities
+  const zeroItems = [];
+  const ids = [];
+  checked.forEach(cb => {
+    const id = parseInt(cb.dataset.id);
+    const qtyInput = cb.closest('.shopping-item').querySelector('.shop-qty');
+    const qty = parseInt(qtyInput.value) || 0;
+    if (qty === 0) {
+      zeroItems.push(id);
+      qtyInput.style.border = '2px solid var(--red)';
+      setTimeout(() => qtyInput.style.border = '1px solid var(--border)', 2000);
+    } else {
+      ids.push(id);
+    }
+  });
+  if (zeroItems.length) {
+    showNotif(`⚠️ ${zeroItems.length} item(s) have 0 quantity — fix before restocking`);
+    if (!ids.length) return;
+  }
   haptic('success');
   await api('/api/items/bulk-restock', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ids}) });
   items.forEach(it => { if (ids.includes(it.id)) it.in_stock = true; });
@@ -723,14 +1100,27 @@ async function doneShop() {
   showNotif(`✅ ${ids.length} item(s) restocked!`);
 }
 
-// Share
+// Share — sends actual shopping list text via WhatsApp or native share
 function shareList() {
   haptic();
-  if (navigator.share) {
-    navigator.share({ title: 'Grocery List', url: window.location.href });
+  const outItems = items.filter(i => !i.in_stock);
+  let text = '🛒 *Shopping List*\n';
+  if (outItems.length) {
+    const grouped = {};
+    outItems.forEach(it => { const c = it.category||'Other'; if(!grouped[c]) grouped[c]=[]; grouped[c].push(it); });
+    for (const cat of catOrder) {
+      if (!grouped[cat]) continue;
+      text += `\n*${catEmoji[cat]||''} ${cat}*\n`;
+      grouped[cat].forEach(it => { text += `☐ ${it.name} ×${it.quantity}\n`; });
+    }
   } else {
-    navigator.clipboard.writeText(window.location.href);
-    showNotif('📋 Link copied!');
+    text += '\n✅ All items in stock!';
+  }
+  if (navigator.share) {
+    navigator.share({ title: 'Shopping List', text });
+  } else {
+    const waUrl = 'https://wa.me/?text=' + encodeURIComponent(text);
+    window.open(waUrl, '_blank');
   }
 }
 
@@ -740,7 +1130,7 @@ function showToast(msg) { document.getElementById('toast-msg').textContent = msg
 function hideToast() { document.getElementById('toast').classList.remove('show'); }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-// Auto-refresh fallback (only if realtime not connected, only when visible, 30s interval)
+// Smart polling (30s, pauses when tab hidden, refreshes on visibility)
 let lastDataHash = '';
 let pollTimer = null;
 
@@ -748,7 +1138,7 @@ function startPolling() {
   stopPolling();
   pollTimer = setInterval(async () => {
     if (realtimeChannel) return;
-    if (document.hidden) return; // Don't poll when tab is hidden
+    if (document.hidden) return;
     const data = await api('/api/items');
     if (!data || !Array.isArray(data)) return;
     const hash = JSON.stringify(data);
@@ -756,24 +1146,32 @@ function startPolling() {
       lastDataHash = hash;
       items = data;
       localStorage.setItem('grocery_items', JSON.stringify(items));
+      const scrollY = window.scrollY;
       render();
+      window.scrollTo(0, scrollY);
     }
-  }, 30000); // 30s instead of 5s
+  }, 30000);
 }
 
 function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
-// Pause/resume polling on visibility change
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     stopPolling();
   } else {
-    // Refresh immediately when tab becomes visible, then resume polling
+    // Refresh immediately when coming back, then resume polling
     (async () => {
       const data = await api('/api/items');
       if (data && Array.isArray(data)) {
         const hash = JSON.stringify(data);
-        if (hash !== lastDataHash) { lastDataHash = hash; items = data; localStorage.setItem('grocery_items', JSON.stringify(items)); render(); }
+        if (hash !== lastDataHash) {
+          lastDataHash = hash;
+          items = data;
+          localStorage.setItem('grocery_items', JSON.stringify(items));
+          const scrollY = window.scrollY;
+          render();
+          window.scrollTo(0, scrollY);
+        }
       }
     })();
     startPolling();
@@ -851,13 +1249,12 @@ function onSearchInput(value) {
     return;
   }
 
-  // Debounce API call for catalog suggestions
   clearTimeout(masterSearchTimer);
   masterSearchTimer = setTimeout(async () => {
-    const data = await api(`/api/master-items/search?q=${encodeURIComponent(q)}`);
+    const data = await api(`/api/master-items?q=${encodeURIComponent(q)}`);
     if (!data || !Array.isArray(data)) { sugBox.style.display = 'none'; return; }
 
-    // Filter out items already in the family list (by name, case-insensitive)
+    // Filter out items already in the family list
     const existingNames = new Set(items.map(i => i.name.toLowerCase()));
     lastMasterResults = data.filter(it => !existingNames.has(it.name.toLowerCase()));
 
@@ -870,24 +1267,23 @@ function renderSuggestions(query) {
   let html = '';
 
   if (lastMasterResults.length > 0) {
-    html += `<div class="suggestion-section">➕ Add from catalog</div>`;
+    html += `<div class="sug-section">➕ Add from catalog</div>`;
     for (let i = 0; i < lastMasterResults.length; i++) {
       const it = lastMasterResults[i];
-      html += `<div class="suggestion-item">
-        <div class="s-info">
-          <div class="s-name">${esc(it.name)}</div>
-          <div class="s-cat">${esc(it.category)}${it.unit ? ' · ' + it.unit : ''}</div>
+      html += `<div class="sug-item">
+        <div class="si-info">
+          <div class="si-name">${esc(it.name)}</div>
+          <div class="si-cat">${esc(it.category)} · ${it.default_quantity} ${esc(it.unit)}</div>
         </div>
-        <button class="s-add" onclick="quickAddByIndex(${i})">+ Add</button>
+        <button class="si-add" onclick="quickAddByIndex(${i})">+ Add</button>
       </div>`;
     }
   }
 
-  // Always show "Add custom" option
   if (query.length >= 2) {
-    html += `<div class="suggestion-custom">
+    html += `<div class="sug-custom">
       <span style="flex:1;font-size:.85rem">Add "<b>${esc(query)}</b>" as new item</span>
-      <button class="s-add" onclick="quickAddCustom()">+ Add</button>
+      <button class="si-add" onclick="quickAddCustom()">+ Add</button>
     </div>`;
   }
 
@@ -902,21 +1298,23 @@ function renderSuggestions(query) {
 async function quickAddByIndex(idx) {
   const it = lastMasterResults[idx];
   if (!it) return;
-  await quickAdd({ name: it.name, category: it.category, quantity: parseInt(it.default_quantity) || 1 });
-}
-
-async function quickAdd(item) {
   haptic('success');
   const data = await api('/api/items', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ name: item.name, category: item.category, quantity: item.quantity })
+    body: JSON.stringify({ name: it.name, category: it.category, quantity: it.default_quantity || 1, unit: it.unit || 'pcs' })
   });
   if (data) {
-    items.push(data);
-    showNotif(`✅ Added "${item.name}"`);
-    // Remove from suggestions
-    lastMasterResults = lastMasterResults.filter(it => it.name !== item.name);
+    if (data.merged) {
+      const i = items.findIndex(x => x.id === data.id);
+      if (i >= 0) items[i] = data;
+      showNotif(`✅ "${data.name}" qty updated to ${data.quantity}`);
+    } else {
+      items.push(data);
+      showNotif(`✅ Added "${it.name}"`);
+    }
+    localStorage.setItem('grocery_items', JSON.stringify(items));
+    lastMasterResults = lastMasterResults.filter(x => x.name !== it.name);
     const q = document.getElementById('main-search').value.trim();
     renderSuggestions(q);
     render();
@@ -930,58 +1328,30 @@ async function quickAddCustom() {
   const data = await api('/api/items', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ name, category: 'Other', quantity: 1 })
+    body: JSON.stringify({ name, category: 'Other', quantity: 1, unit: 'pcs' })
   });
   if (data) {
-    items.push(data);
-    showNotif(`✅ Added "${name}"`);
+    if (data.merged) {
+      const i = items.findIndex(x => x.id === data.id);
+      if (i >= 0) items[i] = data;
+      showNotif(`✅ "${data.name}" qty updated to ${data.quantity}`);
+    } else {
+      items.push(data);
+      showNotif(`✅ Added "${name}"`);
+    }
+    localStorage.setItem('grocery_items', JSON.stringify(items));
     document.getElementById('main-search').value = '';
     document.getElementById('search-suggestions').style.display = 'none';
     render();
   }
 }
 
-// Hide suggestions when search is cleared
+// Hide suggestions on Escape
 document.getElementById('main-search').addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     document.getElementById('main-search').value = '';
     document.getElementById('search-suggestions').style.display = 'none';
     render();
-  }
-});
-
-// Autocomplete from master_items (for Add Item modal)
-let searchTimer = null;
-async function searchMaster(query) {
-  const list = document.getElementById('autocomplete-list');
-  if (!query || query.length < 2) { list.style.display = 'none'; return; }
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(async () => {
-    const data = await api(`/api/master-items/search?q=${encodeURIComponent(query)}`);
-    if (!data || !data.length) { list.style.display = 'none'; return; }
-    list.innerHTML = data.map(it => `
-      <div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:.9rem;display:flex;justify-content:space-between;align-items:center"
-           onmousedown="selectMasterItem('${esc(it.name)}','${esc(it.category)}',${parseInt(it.default_quantity)||1})">
-        <span>${esc(it.name)}</span>
-        <span style="font-size:.7rem;color:var(--muted)">${esc(it.category)}</span>
-      </div>
-    `).join('');
-    list.style.display = 'block';
-  }, 250);
-}
-
-function selectMasterItem(name, category, qty) {
-  document.getElementById('inp-name').value = name;
-  document.getElementById('inp-qty').value = qty;
-  const sel = document.getElementById('inp-cat');
-  for (let opt of sel.options) { if (opt.value === category) { sel.value = category; break; } }
-  document.getElementById('autocomplete-list').style.display = 'none';
-}
-
-// Hide autocomplete when clicking outside
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('#inp-name') && !e.target.closest('#autocomplete-list')) {
-    document.getElementById('autocomplete-list').style.display = 'none';
   }
 });
 
@@ -992,7 +1362,7 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// Swipe support (with RAF throttling)
+// Swipe support (RAF-throttled for smooth performance)
 let touchStartX = 0, touchItem = null, rafPending = false;
 document.addEventListener('touchstart', e => { const item = e.target.closest('.item'); if (!item || e.target.closest('button')) return; touchStartX = e.touches[0].clientX; touchItem = item; }, { passive: true });
 document.addEventListener('touchend', e => {
@@ -1004,10 +1374,11 @@ document.addEventListener('touchend', e => {
 document.addEventListener('touchmove', e => {
   if (!touchItem || rafPending) return;
   rafPending = true;
+  const clientX = e.touches[0].clientX;
   requestAnimationFrame(() => {
     rafPending = false;
     if (!touchItem) return;
-    const diff = e.touches[0].clientX - touchStartX;
+    const diff = clientX - touchStartX;
     if (Math.abs(diff) > 20) {
       touchItem.style.transform = `translateX(${diff * 0.4}px)`;
       if (diff < -40) touchItem.querySelector('.swipe-bg.left').style.opacity = '1'; else touchItem.querySelector('.swipe-bg.left').style.opacity = '0';
@@ -1016,12 +1387,51 @@ document.addEventListener('touchmove', e => {
   });
 }, { passive: true });
 
+// Pull-to-refresh
+let pullStartY = 0, isPulling = false;
+document.addEventListener('touchstart', e => {
+  if (window.scrollY === 0 && !e.target.closest('.item') && !e.target.closest('.modal')) {
+    pullStartY = e.touches[0].clientY; isPulling = true;
+  }
+});
+document.addEventListener('touchmove', e => {
+  if (!isPulling) return;
+  const diff = e.touches[0].clientY - pullStartY;
+  if (diff > 60) document.getElementById('pull-indicator').classList.add('visible');
+});
+document.addEventListener('touchend', e => {
+  if (!isPulling) return;
+  const diff = e.changedTouches[0].clientY - pullStartY;
+  isPulling = false;
+  document.getElementById('pull-indicator').classList.remove('visible');
+  if (diff > 80) { haptic('medium'); load(); showNotif('🔄 Refreshed'); }
+});
+
 // PWA
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
 
 // Init
 updateOfflineStatus();
+
+// Onboarding
+let obStep = 0;
+function showOnboarding() {
+  if (localStorage.getItem('onboarding_done')) return;
+  document.getElementById('onboarding').classList.add('show');
+}
+function nextOnboardingStep() {
+  obStep++;
+  if (obStep > 3) { dismissOnboarding(); return; }
+  document.querySelectorAll('.onboarding-step').forEach(s => s.classList.remove('active'));
+  document.getElementById('ob-step-' + obStep).classList.add('active');
+  document.querySelectorAll('.onboarding-dots .dot').forEach(d => d.classList.toggle('active', parseInt(d.dataset.step) === obStep));
+  if (obStep === 3) document.getElementById('ob-next').textContent = 'Get Started ✓';
+}
+function dismissOnboarding() {
+  document.getElementById('onboarding').classList.remove('show');
+  localStorage.setItem('onboarding_done', '1');
+}
 
 // Refresh token via Supabase then load
 (function initApp() {
@@ -1032,7 +1442,7 @@ updateOfflineStatus();
     .then(r => r.json())
     .then(d => {
       if (d && d.user) {
-        load();
+        load().then(() => showOnboarding());
       } else {
         localStorage.removeItem('sb_token');
         window.location.href = '/auth.html';
