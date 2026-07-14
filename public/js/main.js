@@ -241,7 +241,7 @@ async function bulkAdd() {
   haptic('success');
   const cat = document.getElementById('bulk-cat').value;
   const data = await api('/api/items/bulk', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({items: text, category: cat}) });
-  if (data) { items.push(...data); render(); showNotif(`✅ Added ${data.length} state.items`); }
+  if (data) { state.items.push(...data); render(); showNotif(`✅ Added ${data.length} items`); }
   document.getElementById('bulk-text').value = '';
   closeModal('bulkModal');
 }
@@ -314,8 +314,7 @@ function autoDetectUnit() {
   else unitSel.value = 'pcs';
 }
 
-// Autocomplete from master state.items
-let state.acTimer = null;
+// Autocomplete from master items
 function onNameInput() {
   autoDetectUnit();
   clearTimeout(state.acTimer);
@@ -362,9 +361,9 @@ function shopSelectAll(checked) {
 }
 
 function renderShop() {
-  const outItems = items.filter(it => !it.in_stock);
+  const outItems = state.items.filter(it => !it.in_stock);
   let html = '';
-  if (!outItems.length) { html = '<p style="color:var(--muted);text-align:center;margin-top:30px">All state.items in stock! 🎉</p>'; }
+  if (!outItems.length) { html = '<p style="color:var(--muted);text-align:center;margin-top:30px">All items in stock! 🎉</p>'; }
   // Group by category
   const grouped = {};
   outItems.forEach(it => { const c = it.category || 'Other'; if (!grouped[c]) grouped[c] = []; grouped[c].push(it); });
@@ -419,7 +418,7 @@ async function doneShop() {
   }
   haptic('success');
   await api('/api/items/bulk-restock', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ids}) });
-  items.forEach(it => { if (ids.includes(it.id)) it.in_stock = true; });
+  state.items.forEach(it => { if (ids.includes(it.id)) it.in_stock = true; });
   renderShop();
   updateShopBadge();
   showNotif(`✅ ${ids.length} item(s) restocked!`);
@@ -428,7 +427,7 @@ async function doneShop() {
 // Share — sends actual shopping list text via WhatsApp or native share
 function shareList() {
   haptic();
-  const outItems = items.filter(i => !i.in_stock);
+  const outItems = state.items.filter(i => !i.in_stock);
   let text = '🛒 *Shopping List*\n';
   if (outItems.length) {
     const grouped = {};
@@ -439,7 +438,7 @@ function shareList() {
       grouped[cat].forEach(it => { text += `☐ ${it.name} ×${it.quantity}\n`; });
     }
   } else {
-    text += '\n✅ All state.items in stock!';
+    text += '\n✅ All items in stock!';
   }
   if (navigator.share) {
     navigator.share({ title: 'Shopping List', text });
@@ -452,7 +451,7 @@ function shareList() {
 // Notifications — imported from utils.js
 
 // Smart polling (30s, pauses when tab hidden, refreshes on visibility)
-let state.lastDataHash = '';
+
 let pollTimer = null;
 
 function startPolling() {
@@ -502,8 +501,8 @@ document.addEventListener('visibilitychange', () => {
 // Export to PDF
 function exportPDF() {
   haptic();
-  const outItems = items.filter(i => !i.in_stock);
-  const inItems = items.filter(i => i.in_stock);
+  const outItems = state.items.filter(i => !i.in_stock);
+  const inItems = state.items.filter(i => i.in_stock);
 
   let html = `<html><head><title>Grocery List</title><style>
     body { font-family: -apple-system, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
@@ -556,11 +555,9 @@ function exportPDF() {
 document.getElementById('inp-name').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
 
 // ── UNIFIED SEARCH + ADD FROM CATALOG ──────────────────────────────
-let state.masterSearchTimer = null;
-let state.lastMasterResults = [];
 
 function onSearchInput(value) {
-  render(); // filter existing state.items as usual
+  render(); // filter existing items as usual
   const q = value.trim();
   const sugBox = document.getElementById('search-suggestions');
 
@@ -583,8 +580,8 @@ function onSearchInput(value) {
       return;
     }
 
-    // Filter out state.items already in the family list
-    const existingNames = new Set(items.map(i => i.name.toLowerCase()));
+    // Filter out items already in the family list
+    const existingNames = new Set(state.items.map(i => i.name.toLowerCase()));
     state.lastMasterResults = data.filter(it => !existingNames.has(it.name.toLowerCase()));
 
     renderSuggestions(q);
@@ -631,7 +628,7 @@ async function quickAddByIndex(idx) {
 
   // Optimistic: add to list and remove from suggestions immediately
   const tempId = -Date.now();
-  items.push({ id: tempId, name: it.name, category: it.category, quantity: it.default_quantity || 1, unit: it.unit || 'pcs', in_stock: true, sort_order: 9999, added_by: 'You', _optimistic: true });
+  state.items.push({ id: tempId, name: it.name, category: it.category, quantity: it.default_quantity || 1, unit: it.unit || 'pcs', in_stock: true, sort_order: 9999, added_by: 'You', _optimistic: true });
   state.lastMasterResults = state.lastMasterResults.filter(x => x.name !== it.name);
   const q = document.getElementById('main-search').value.trim();
   renderSuggestions(q);
@@ -643,14 +640,14 @@ async function quickAddByIndex(idx) {
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ name: it.name, category: it.category, quantity: it.default_quantity || 1, unit: it.unit || 'pcs' })
   });
-  state.items = items.filter(i => i.id !== tempId);
+  state.items = state.items.filter(i => i.id !== tempId);
   if (data) {
     if (data.merged) {
-      const i = items.findIndex(x => x.id === data.id);
+      const i = state.items.findIndex(x => x.id === data.id);
       if (i >= 0) state.items[i] = data;
       showNotif(`✅ "${data.name}" qty updated to ${data.quantity}`);
     } else {
-      items.push(data);
+      state.items.push(data);
     }
     localStorage.setItem('grocery_items', JSON.stringify(state.items));
     render();
@@ -668,11 +665,11 @@ async function quickAddCustom() {
   });
   if (data) {
     if (data.merged) {
-      const i = items.findIndex(x => x.id === data.id);
+      const i = state.items.findIndex(x => x.id === data.id);
       if (i >= 0) state.items[i] = data;
       showNotif(`✅ "${data.name}" qty updated to ${data.quantity}`);
     } else {
-      items.push(data);
+      state.items.push(data);
       showNotif(`✅ Added "${name}"`);
     }
     localStorage.setItem('grocery_items', JSON.stringify(state.items));
