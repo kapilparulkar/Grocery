@@ -13,10 +13,10 @@
 </head>
 <body>
 <header>
-  <button class="hamburger" onclick="openDrawer()">â˜°</button>
+  <button class="hamburger" onclick="openDrawer()">☰</button>
   <div class="family-switcher" onclick="toggleFamilySwitcher()">
-    <span id="active-family-name">ðŸ›’ Grocery List</span>
-    <span id="family-caret" style="font-size:.7rem;margin-left:4px">â–¾</span>
+    <span id="active-family-name">🛒 Grocery List</span>
+    <span id="family-caret" style="font-size:.7rem;margin-left:4px">▾</span>
   </div>
   <div style="width:36px"></div>
 </header>
@@ -26,70 +26,70 @@
 <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
 <div class="drawer" id="drawer">
   <div class="drawer-header">
-    <span style="font-size:1.5rem">ðŸ›’</span>
+    <span style="font-size:1.5rem">🛒</span>
     <h2>Grocery List</h2>
-    <button class="drawer-close" onclick="closeDrawer()">âœ•</button>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
   </div>
   <div class="drawer-section">
-    <button class="drawer-item" id="menu-home" onclick="drawerAction('home')"><span class="icon">ðŸ </span>Home</button>
-    <button class="drawer-item" id="menu-shop" onclick="drawerAction('shop')"><span class="icon">ðŸ›–</span>Shopping Mode</button>
+    <button class="drawer-item" id="menu-home" onclick="drawerAction('home')"><span class="icon">🏠</span>Home</button>
+    <button class="drawer-item" id="menu-shop" onclick="drawerAction('shop')"><span class="icon">🛖</span>Shopping Mode</button>
   </div>
   <div class="drawer-section">
-    <button class="drawer-item" onclick="drawerAction('add')"><span class="icon">âž•</span>Add Item</button>
-    <button class="drawer-item" onclick="drawerAction('voice')"><span class="icon">ðŸŽ¤</span>Voice Input</button>
-    <button class="drawer-item" onclick="drawerAction('bulk')"><span class="icon">ðŸ“</span>Bulk Add</button>
+    <button class="drawer-item" onclick="drawerAction('add')"><span class="icon">➕</span>Add Item</button>
+    <button class="drawer-item" onclick="drawerAction('voice')"><span class="icon">🎤</span>Voice Input</button>
+    <button class="drawer-item" onclick="drawerAction('bulk')"><span class="icon">📝</span>Bulk Add</button>
   </div>
   <div class="drawer-section">
-    <button class="drawer-item" id="menu-delete" onclick="drawerAction('delete')"><span class="icon">ðŸ—‘ï¸</span>Delete Mode<span class="drawer-toggle" id="deleteToggle"></span></button>
-    <button class="drawer-item" onclick="drawerAction('pdf')"><span class="icon">ðŸ–¨ï¸</span>Export PDF</button>
-    <button class="drawer-item" onclick="drawerAction('share')"><span class="icon">ðŸ”—</span>Share List</button>
+    <button class="drawer-item" id="menu-delete" onclick="drawerAction('delete')"><span class="icon">🗑️</span>Delete Mode<span class="drawer-toggle" id="deleteToggle"></span></button>
+    <button class="drawer-item" onclick="drawerAction('pdf')"><span class="icon">🖨️</span>Export PDF</button>
+    <button class="drawer-item" onclick="drawerAction('share')"><span class="icon">🔗</span>Share List</button>
   </div>
   <div class="drawer-section">
-    <button class="drawer-item" onclick="drawerAction('theme')"><span class="icon">ðŸŒ“</span>Dark Mode<span class="drawer-toggle" id="themeToggle"></span></button>
+    <button class="drawer-item" onclick="drawerAction('theme')"><span class="icon">🌓</span>Dark Mode<span class="drawer-toggle" id="themeToggle"></span></button>
   </div>
   <div class="drawer-section">
-    <button class="drawer-item" onclick="drawerAction('invite')"><span class="icon">ðŸ”—</span>Invite Family</button>
-    <button class="drawer-item" onclick="drawerAction('about')"><span class="icon">â„¹ï¸</span>About</button>
-    <button class="drawer-item" style="color:var(--red)" onclick="drawerAction('logout')"><span class="icon">ðŸšª</span>Logout</button>
+    <button class="drawer-item" onclick="drawerAction('invite')"><span class="icon">🔗</span>Invite Family</button>
+    <button class="drawer-item" onclick="drawerAction('about')"><span class="icon">ℹ️</span>About</button>
+    <button class="drawer-item" style="color:var(--red)" onclick="drawerAction('logout')"><span class="icon">🚪</span>Logout</button>
   </div>
 </div>
 
-<div class="offline-bar" id="offline-bar">ðŸ“¡ Offline â€” changes will sync when back online</div>
+<div class="offline-bar" id="offline-bar">📡 Offline — changes will sync when back online</div>
 <div class="notif-bar" id="notif"></div>
 
 <!-- ONBOARDING -->
 <div class="onboarding" id="onboarding">
   <div class="onboarding-step active" id="ob-step-0">
-    <div class="emoji">ðŸ›’</div>
+    <div class="emoji">🛒</div>
     <h2>Welcome to Grocery List!</h2>
-    <p>Your family shopping list â€” synced across all devices in real-time.</p>
-    <div class="tip"><span class="tip-icon">ðŸ‘¨â€ðŸ‘©â€ðŸ‘§</span> Everyone in your family sees the same list instantly</div>
-    <div class="tip"><span class="tip-icon">ðŸ“¡</span> Works offline too â€” syncs when you're back online</div>
+    <p>Your family shopping list — synced across all devices in real-time.</p>
+    <div class="tip"><span class="tip-icon">👨‍👩‍👧</span> Everyone in your family sees the same list instantly</div>
+    <div class="tip"><span class="tip-icon">📡</span> Works offline too — syncs when you're back online</div>
   </div>
   <div class="onboarding-step" id="ob-step-1">
-    <div class="emoji">ðŸ‘†</div>
+    <div class="emoji">👆</div>
     <h2>Quick Gestures</h2>
     <p>Navigate your list faster with these shortcuts:</p>
-    <div class="tip"><span class="tip-icon">ðŸ‘ˆ</span> <b>Swipe left</b> on an item â†’ mark as "Out of stock"</div>
-    <div class="tip"><span class="tip-icon">ðŸ‘‰</span> <b>Swipe right</b> on an out-of-stock item â†’ Restock it</div>
-    <div class="tip"><span class="tip-icon">â¬‡ï¸</span> <b>Pull down</b> from the top â†’ Refresh the list</div>
+    <div class="tip"><span class="tip-icon">👈</span> <b>Swipe left</b> on an item → mark as "Out of stock"</div>
+    <div class="tip"><span class="tip-icon">👉</span> <b>Swipe right</b> on an out-of-stock item → Restock it</div>
+    <div class="tip"><span class="tip-icon">⬇️</span> <b>Pull down</b> from the top → Refresh the list</div>
   </div>
   <div class="onboarding-step" id="ob-step-2">
-    <div class="emoji">ðŸ›–</div>
+    <div class="emoji">🛖</div>
     <h2>Shopping Mode</h2>
     <p>When you're at the store, switch to Shopping Mode:</p>
-    <div class="tip"><span class="tip-icon">âœ…</span> Check off items as you pick them up</div>
-    <div class="tip"><span class="tip-icon">ðŸ”„</span> Hit "Done" to restock all checked items at once</div>
-    <div class="tip"><span class="tip-icon">ðŸ”—</span> Share your list via WhatsApp or any app</div>
+    <div class="tip"><span class="tip-icon">✅</span> Check off items as you pick them up</div>
+    <div class="tip"><span class="tip-icon">🔄</span> Hit "Done" to restock all checked items at once</div>
+    <div class="tip"><span class="tip-icon">🔗</span> Share your list via WhatsApp or any app</div>
   </div>
   <div class="onboarding-step" id="ob-step-3">
-    <div class="emoji">ðŸŽ¤</div>
+    <div class="emoji">🎤</div>
     <h2>Pro Tips</h2>
     <p>Power features to save you time:</p>
-    <div class="tip"><span class="tip-icon">ðŸŽ¤</span> <b>Voice Input</b> â€” say "Add 2 Milk to Dairy"</div>
-    <div class="tip"><span class="tip-icon">ðŸ“</span> <b>Bulk Add</b> â€” paste a list, one item per line</div>
-    <div class="tip"><span class="tip-icon">â†‘</span> <b>Move to Top</b> â€” prioritize items you need first</div>
-    <div class="tip"><span class="tip-icon">ðŸ“</span> <b>Notes</b> â€” add brand or size info to any item</div>
+    <div class="tip"><span class="tip-icon">🎤</span> <b>Voice Input</b> — say "Add 2 Milk to Dairy"</div>
+    <div class="tip"><span class="tip-icon">📝</span> <b>Bulk Add</b> — paste a list, one item per line</div>
+    <div class="tip"><span class="tip-icon">↑</span> <b>Move to Top</b> — prioritize items you need first</div>
+    <div class="tip"><span class="tip-icon">📝</span> <b>Notes</b> — add brand or size info to any item</div>
   </div>
   <div class="onboarding-dots">
     <div class="dot active" data-step="0"></div>
@@ -97,21 +97,21 @@
     <div class="dot" data-step="2"></div>
     <div class="dot" data-step="3"></div>
   </div>
-  <button class="onboarding-btn" id="ob-next" onclick="nextOnboardingStep()">Next â†’</button>
+  <button class="onboarding-btn" id="ob-next" onclick="nextOnboardingStep()">Next →</button>
   <button class="onboarding-skip" onclick="dismissOnboarding()">Skip tutorial</button>
 </div>
 
 <div class="page-tabs">
-  <button class="page-tab active" id="tab-btn-home" onclick="switchView('home')">ðŸ“‹ List</button>
-  <button class="page-tab" id="tab-btn-shop" onclick="switchView('shop')">ðŸ›– Shop <span id="shop-badge"></span></button>
+  <button class="page-tab active" id="tab-btn-home" onclick="switchView('home')">📋 List</button>
+  <button class="page-tab" id="tab-btn-shop" onclick="switchView('shop')">🛖 Shop <span id="shop-badge"></span></button>
 </div>
 
 <!-- HOME VIEW -->
 <div id="view-home">
-  <div class="pull-indicator" id="pull-indicator">â†“ Pull to refresh</div>
+  <div class="pull-indicator" id="pull-indicator">↓ Pull to refresh</div>
   <div style="position:relative;margin-bottom:10px">
     <input class="search" id="main-search" placeholder="Search or add items..." oninput="onSearchInput(this.value)" style="margin-bottom:0">
-    <button class="search-clear" id="search-clear" onclick="clearSearch()">âœ•</button>
+    <button class="search-clear" id="search-clear" onclick="clearSearch()">✕</button>
   </div>
   <div id="search-suggestions" style="display:none"></div>
   <div class="cat-tabs" id="cat-tabs"></div>
@@ -122,24 +122,24 @@
 <div id="view-shop" style="display:none">
   <p style="color:var(--muted);font-size:.85rem;margin-bottom:10px">Check off items as you shop. Hit "Done" to restock.</p>
   <div class="shop-controls">
-    <button onclick="shopSelectAll(true)">â˜‘ Select All</button>
-    <button onclick="shopSelectAll(false)">â˜ Deselect All</button>
+    <button onclick="shopSelectAll(true)">☑ Select All</button>
+    <button onclick="shopSelectAll(false)">☐ Deselect All</button>
   </div>
   <div id="shop-list"></div>
-  <button class="shopping-done" onclick="doneShop()">âœ… Done Shopping</button>
+  <button class="shopping-done" onclick="doneShop()">✅ Done Shopping</button>
 </div>
 
 <!-- VOICE CONFIRM MODAL -->
 <div class="modal" id="voiceConfirmModal">
   <div class="modal-content">
-    <h3>ðŸŽ¤ Voice Input</h3>
+    <h3>🎤 Voice Input</h3>
     <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">I heard:</p>
     <div id="voice-heard" style="font-size:1.1rem;font-weight:600;margin-bottom:12px;color:var(--green)"></div>
     <p style="font-size:.8rem;color:var(--muted);margin-bottom:4px">Adding as:</p>
     <div id="voice-parsed" style="font-size:.9rem;margin-bottom:12px"></div>
     <div class="btns">
       <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('voiceConfirmModal')">Cancel</button>
-      <button type="button" style="background:var(--green);color:#fff" onclick="confirmVoiceAdd()">Add âœ“</button>
+      <button type="button" style="background:var(--green);color:#fff" onclick="confirmVoiceAdd()">Add ✓</button>
     </div>
   </div>
 </div>
@@ -147,7 +147,7 @@
 <!-- ABOUT MODAL -->
 <div class="modal" id="aboutModal">
   <div class="modal-content">
-    <h3>â„¹ï¸ About</h3>
+    <h3>ℹ️ About</h3>
     <p style="margin:10px 0;font-size:.9rem;color:var(--muted)">Family Grocery List App</p>
     <p style="font-size:.85rem;margin-bottom:6px"><b>Version:</b> 2.0</p>
     <p style="font-size:.85rem;margin-bottom:6px"><b>Features:</b> Real-time sync, offline support, voice input, PDF export</p>
@@ -159,7 +159,7 @@
 <!-- ADD ITEM MODAL -->
 <div class="modal" id="addModal">
   <div class="modal-content">
-    <h3>âž• Add Item</h3>
+    <h3>➕ Add Item</h3>
     <div class="autocomplete">
       <input id="inp-name" placeholder="Item name..." autocomplete="off" oninput="onNameInput()">
       <div class="autocomplete-list" id="ac-list"></div>
@@ -198,7 +198,7 @@
 <!-- INVITE MODAL -->
 <div class="modal" id="inviteModal">
   <div class="modal-content" style="text-align:center">
-    <h3>ðŸ”— Invite Family Members</h3>
+    <h3>🔗 Invite Family Members</h3>
     <p style="font-size:.85rem;color:var(--muted);margin:8px 0">Share this code with your family</p>
     <div id="modal-invite-code" style="font-size:2rem;font-weight:700;letter-spacing:6px;color:var(--green);border:2px dashed var(--green);border-radius:12px;padding:16px;margin:12px 0"></div>
     <div class="btns">
@@ -211,7 +211,7 @@
 <!-- DELETE CONFIRM MODAL -->
 <div class="modal confirm-modal" id="confirmDeleteModal">
   <div class="modal-content">
-    <h3>ðŸ—‘ï¸ Delete Item?</h3>
+    <h3>🗑️ Delete Item?</h3>
     <div class="item-name" id="confirm-del-name"></div>
     <div class="btns">
       <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('confirmDeleteModal')">Cancel</button>
@@ -223,7 +223,7 @@
 <!-- EDIT ITEM MODAL -->
 <div class="modal" id="editModal">
   <div class="modal-content">
-    <h3>âœï¸ Edit Item</h3>
+    <h3>✏️ Edit Item</h3>
     <input id="edit-name" placeholder="Item name..." autocomplete="off">
     <input id="edit-note" placeholder="Note (optional)" autocomplete="off">
     <div style="display:flex;gap:8px;margin-bottom:10px">
