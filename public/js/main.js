@@ -3,27 +3,17 @@ import { SUPABASE_URL, SUPABASE_KEY, catOrder, catEmoji } from './config.js';
 import { state } from './state.js';
 import { esc, haptic, showNotif, showToast, hideToast } from './utils.js';
 import { api, updateOfflineStatus, flushOfflineQueue } from './api.js';
+import { render, updateShopBadge, showSkeleton } from './render.js';
+import { closeModal, selectCat, addItem, toggle, adjustQty, changeQty, del, confirmDel, undoLastDelete, moveToTop, openEdit, saveEdit } from './actions.js';
 
-// ── Local aliases for state (backward compat during migration) ──
-let items = state.items;
-let deletedHistory = state.deletedHistory;
-let toastTimer = state.toastTimer;
-let activeCat = state.activeCat;
-let recognition = state.recognition;
-let isOnline = state.isOnline;
-let offlineQueue = state.offlineQueue;
-let voicePending = state.voicePending;
-let realtimeChannel = state.realtimeChannel;
-let activeFamilyId = state.activeFamilyId;
-let allFamilies = state.allFamilies;
-let supabaseClient = state.supabaseClient;
+// ── Local aliases removed — use state.* directly ──
 
 // ── QUICK WIN: Show cached data instantly, or skeleton if no cache ──
 (function renderCachedItems() {
   const cached = localStorage.getItem('grocery_items');
   if (cached) {
     try {
-      items = JSON.parse(cached);
+      state.items = JSON.parse(cached);
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => render());
       } else {
@@ -31,16 +21,6 @@ let supabaseClient = state.supabaseClient;
       }
     } catch(e) { /* ignore corrupt cache */ }
   } else {
-    // Show skeleton placeholders while waiting for first load
-    const showSkeleton = () => {
-      const listEl = document.getElementById('list');
-      if (!listEl) return;
-      let sk = '<div class="skeleton skeleton-cat"></div>';
-      for (let i = 0; i < 6; i++) {
-        sk += `<div class="skeleton-item"><div class="skeleton sk-name"></div><div class="skeleton sk-qty"></div></div>`;
-      }
-      listEl.innerHTML = sk;
-    };
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', showSkeleton);
     } else {
@@ -50,32 +30,32 @@ let supabaseClient = state.supabaseClient;
 })();
 
 function initRealtime() {
-  if (!activeFamilyId) return;
+  if (!state.activeFamilyId) return;
   // Clean up existing channel
-  if (realtimeChannel && supabaseClient) {
-    supabaseClient.removeChannel(realtimeChannel);
-    realtimeChannel = null;
+  if (state.realtimeChannel && state.supabaseClient) {
+    state.supabaseClient.removeChannel(state.realtimeChannel);
+    state.realtimeChannel = null;
   }
   try {
-    if (!supabaseClient) {
-      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    if (!state.supabaseClient) {
+      state.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     }
-    realtimeChannel = supabaseClient
+    state.realtimeChannel = state.supabaseClient
       .channel('items-realtime')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'items',
-        filter: `family_id=eq.${activeFamilyId}`
+        filter: `family_id=eq.${state.activeFamilyId}`
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
-          const exists = items.find(i => i.id === payload.new.id);
-          if (!exists) { items.push(payload.new); render(); }
+          const exists = state.items.find(i => i.id === payload.new.id);
+          if (!exists) { state.items.push(payload.new); render(); }
         } else if (payload.eventType === 'UPDATE') {
-          const idx = items.findIndex(i => i.id === payload.new.id);
-          if (idx >= 0) { items[idx] = payload.new; const scrollY = window.scrollY; render(); window.scrollTo(0, scrollY); }
+          const idx = state.items.findIndex(i => i.id === payload.new.id);
+          if (idx >= 0) { state.items[idx] = payload.new; const scrollY = window.scrollY; render(); window.scrollTo(0, scrollY); }
         } else if (payload.eventType === 'DELETE') {
-          items = items.filter(i => i.id !== payload.old.id);
+          state.items = state.items.filter(i => i.id !== payload.old.id);
           render();
         }
       })
@@ -86,7 +66,7 @@ function initRealtime() {
       });
   } catch(e) {
     console.warn('Realtime init failed, falling back to polling', e);
-    realtimeChannel = null;
+    state.realtimeChannel = null;
   }
 }
 
@@ -108,8 +88,7 @@ function toggleTheme() {
 
 // Tabs (removed - navigation now in drawer)
 
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-function selectCat(cat) { haptic(); activeCat = cat; render(); }
+// closeModal, selectCat — imported from actions.js
 
 // Drawer
 function switchView(view) {
@@ -124,10 +103,7 @@ function switchView(view) {
   else renderShop();
 }
 
-function updateShopBadge() {
-  const count = items.filter(i => !i.in_stock).length;
-  document.getElementById('shop-badge').textContent = count > 0 ? `(${count})` : '';
-}
+// updateShopBadge — imported from render.js
 
 function openDrawer() {
   haptic();
@@ -189,12 +165,12 @@ function toggleDeleteMode() {
 
 async function load() {
   // Load families on first load
-  if (allFamilies.length === 0) await loadFamilies();
+  if (state.allFamilies.length === 0) await loadFamilies();
   const data = await api('/api/items');
   if (data && Array.isArray(data)) {
-    items = data;
-    lastDataHash = JSON.stringify(data);
-    localStorage.setItem('grocery_items', JSON.stringify(items));
+    state.items = data;
+    state.lastDataHash = JSON.stringify(data);
+    localStorage.setItem('grocery_items', JSON.stringify(state.items));
     render();
     initRealtime();
   }
@@ -204,31 +180,31 @@ async function load() {
 async function loadFamilies() {
   const d = await api('/api/auth/me');
   if (d && d.memberships) {
-    allFamilies = d.memberships;
-    if (!activeFamilyId && allFamilies.length > 0) {
-      activeFamilyId = allFamilies[0].family_id;
-      localStorage.setItem('active_family_id', activeFamilyId);
+    state.allFamilies = d.memberships;
+    if (!state.activeFamilyId && state.allFamilies.length > 0) {
+      state.activeFamilyId = state.allFamilies[0].family_id;
+      localStorage.setItem('active_family_id', state.activeFamilyId);
     }
     updateFamilyHeader();
   }
 }
 
 function updateFamilyHeader() {
-  const active = allFamilies.find(f => f.family_id === activeFamilyId) || allFamilies[0];
+  const active = state.allFamilies.find(f => f.family_id === state.activeFamilyId) || state.allFamilies[0];
   if (active) {
     document.getElementById('active-family-name').textContent = active.families.name;
   }
   // Show caret only if multiple families
-  document.getElementById('family-caret').style.display = allFamilies.length > 1 ? '' : 'none';
+  document.getElementById('family-caret').style.display = state.allFamilies.length > 1 ? '' : 'none';
 }
 
 function toggleFamilySwitcher() {
-  if (allFamilies.length <= 1) return;
+  if (state.allFamilies.length <= 1) return;
   const dd = document.getElementById('familySwitcherDropdown');
   dd.classList.toggle('show');
   if (dd.classList.contains('show')) {
-    let html = allFamilies.map(f => {
-      const isActive = f.family_id === activeFamilyId;
+    let html = state.allFamilies.map(f => {
+      const isActive = f.family_id === state.activeFamilyId;
       return `<button class="family-switch-item${isActive?' active':''}" onclick="switchFamily('${f.family_id}')">
         <span>🏠</span>
         <span>${esc(f.families.name)}</span>
@@ -243,291 +219,19 @@ function toggleFamilySwitcher() {
 }
 
 async function switchFamily(familyId) {
-  activeFamilyId = familyId;
+  state.activeFamilyId = familyId;
   localStorage.setItem('active_family_id', familyId);
   document.getElementById('familySwitcherDropdown').classList.remove('show');
   updateFamilyHeader();
-  items = [];
-  lastDataHash = '';
+  state.items = [];
+  state.lastDataHash = '';
   await load();
-  showNotif('Switched to ' + (allFamilies.find(f => f.family_id === familyId)?.families.name || 'family'));
+  showNotif('Switched to ' + (state.allFamilies.find(f => f.family_id === familyId)?.families.name || 'family'));
 }
 
-function render() {
-  const search = document.getElementById('main-search').value.toLowerCase();
-  const filtered = items.filter(it => !search || it.name.toLowerCase().includes(search));
-
-  const categories = {};
-  filtered.forEach(it => {
-    const cat = it.category || 'Other';
-    if (!categories[cat]) categories[cat] = [];
-    categories[cat].push(it);
-  });
-
-  // Category tabs
-  let tabsHtml = `<div class="cat-tab${activeCat==='All'?' active':''}" onclick="selectCat('All')">All<span class="count">${filtered.length}</span></div>`;
-  for (const cat of catOrder) {
-    if (categories[cat]) {
-      tabsHtml += `<div class="cat-tab${activeCat===cat?' active':''}" onclick="selectCat('${cat}')">${catEmoji[cat]||''} ${cat}<span class="count">${categories[cat].length}</span></div>`;
-    }
-  }
-  document.getElementById('cat-tabs').innerHTML = tabsHtml;
-
-  const sortedCats = Object.keys(categories).sort((a,b) => catOrder.indexOf(a) - catOrder.indexOf(b));
-  const visibleCats = activeCat === 'All' ? sortedCats : sortedCats.filter(c => c === activeCat);
-
-  let html = '';
-  for (const cat of visibleCats) {
-    const catItems = categories[cat].sort((a,b) => b.in_stock - a.in_stock || a.name.localeCompare(b.name));
-    html += `<div class="category-group"><div class="category-title">${catEmoji[cat]||'📦'} ${esc(cat)} (${catItems.length})</div>`;
-    for (const it of catItems) {
-      const cls = it.in_stock ? '' : ' out';
-      const toggleLabel = it.in_stock ? 'Out' : '✓';
-      const noteHtml = it.note ? `<div class="note">📝 ${esc(it.note)}</div>` : '';
-      html += `<div class="item${cls}" data-id="${it.id}">
-        <div class="swipe-bg left">◀ Out</div>
-        <div class="swipe-bg right">Restock ▶</div>
-        <div class="info" onclick="openEdit(${it.id})" style="cursor:pointer"><div class="name">${esc(it.name)}</div>${noteHtml}${it.added_by ? `<div style="font-size:.7rem;color:var(--muted)">Added by ${esc(it.added_by)}</div>` : ''}</div>
-        <div class="qty-ctrl">
-          <button onclick="adjustQty(${it.id},-1)">−</button>
-          <span>${it.quantity} ${esc(it.unit || 'pcs')}</span>
-          <button onclick="adjustQty(${it.id},1)">+</button>
-        </div>
-        <button class="btn-move-top" onclick="moveToTop(${it.id})">↑</button>
-        <button class="btn-toggle" onclick="toggle(${it.id})">${toggleLabel}</button>
-        <button class="btn-del" onclick="del(${it.id})">✕</button>
-      </div>`;
-    }
-    html += '</div>';
-  }
-  document.getElementById('list').innerHTML = html || `<div class="empty-state">
-    <div class="emoji">🛒</div>
-    <div class="title">Your list is empty</div>
-    <div class="hint">Search above to add items from the catalog,<br>or use the ☰ menu → Add Item</div>
-  </div>`;
-  updateShopBadge();
-}
-
-// CRUD
-async function addItem() {
-  const name = document.getElementById('inp-name').value.trim();
-  if (!name) { document.getElementById('inp-name').style.animation = 'shake .4s'; setTimeout(() => document.getElementById('inp-name').style.animation = '', 400); return; }
-  haptic('success');
-  const qty = parseInt(document.getElementById('inp-qty').value) || 1;
-  const cat = document.getElementById('inp-cat').value;
-  const note = document.getElementById('inp-note').value.trim();
-  const unit = document.getElementById('inp-unit').value;
-
-  // Optimistic UI: show item immediately with temp ID
-  const tempId = -Date.now();
-  const optimisticItem = { id: tempId, name, quantity: qty, category: cat, note: note || null, unit, in_stock: true, sort_order: 9999, added_by: 'You', _optimistic: true };
-  items.push(optimisticItem);
-  render();
-
-  // Clear form and close modal immediately (feels instant)
-  document.getElementById('inp-name').value = '';
-  document.getElementById('inp-qty').value = '1';
-  document.getElementById('inp-note').value = '';
-  document.getElementById('inp-unit').value = 'pcs';
-  closeModal('addModal');
-
-  // Now make the actual API call
-  const data = await api('/api/items', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name, quantity: qty, category: cat, note: note || undefined, unit}) });
-  // Remove optimistic item
-  items = items.filter(i => i.id !== tempId);
-  if (data) {
-    if (data.merged) {
-      const idx = items.findIndex(i => i.id === data.id);
-      if (idx >= 0) items[idx] = data; else items.push(data);
-      showNotif(`✅ "${data.name}" already exists — quantity updated to ${data.quantity}`);
-    } else {
-      items.push(data);
-    }
-    localStorage.setItem('grocery_items', JSON.stringify(items));
-  } else {
-    showNotif(`⚠️ Failed to add "${name}" — will retry when online`);
-  }
-  render();
-}
-
-async function toggle(id) {
-  haptic('medium');
-  const idx = items.findIndex(i => i.id === id);
-  if (idx < 0) return;
-  const prevState = items[idx].in_stock;
-  items[idx] = { ...items[idx], in_stock: !prevState };
-
-  // Patch DOM directly — no full render
-  const el = document.querySelector(`.item[data-id="${id}"]`);
-  if (el) {
-    el.classList.toggle('out', !items[idx].in_stock);
-    const btn = el.querySelector('.btn-toggle');
-    if (btn) btn.textContent = items[idx].in_stock ? 'Out' : '✓';
-  }
-  updateShopBadge();
-
-  const data = await api(`/api/items/${id}/toggle`, { method: 'POST' });
-  if (data) {
-    items[idx] = data;
-    // If server disagrees, patch again
-    if (data.in_stock !== !prevState) {
-      if (el) {
-        el.classList.toggle('out', !data.in_stock);
-        const btn = el.querySelector('.btn-toggle');
-        if (btn) btn.textContent = data.in_stock ? 'Out' : '✓';
-      }
-    }
-  } else {
-    // Revert on failure
-    items[idx] = { ...items[idx], in_stock: prevState };
-    if (el) {
-      el.classList.toggle('out', !prevState);
-      const btn = el.querySelector('.btn-toggle');
-      if (btn) btn.textContent = prevState ? 'Out' : '✓';
-    }
-    showNotif('⚠️ Failed to update — reverted');
-  }
-  updateShopBadge();
-}
-
-// Helper: looks up current qty from items array, then calls changeQty with the adjusted value
-function adjustQty(id, delta) {
-  const item = items.find(i => i.id === id);
-  if (!item) return;
-  changeQty(id, item.quantity + delta);
-}
-
-async function changeQty(id, newQty) {
-  if (newQty < 0) return;
-  haptic();
-  const idx = items.findIndex(i => i.id === id);
-  if (idx < 0) return;
-  const prevQty = items[idx].quantity;
-  const prevStock = items[idx].in_stock;
-  items[idx] = { ...items[idx], quantity: newQty };
-  if (newQty === 0) items[idx].in_stock = false;
-
-  // Patch DOM directly — no full render
-  const el = document.querySelector(`.item[data-id="${id}"]`);
-  if (el) {
-    const qtySpan = el.querySelector('.qty-ctrl span');
-    if (qtySpan) qtySpan.textContent = `${newQty} ${items[idx].unit || 'pcs'}`;
-    if (newQty === 0) {
-      el.classList.add('out');
-      const btn = el.querySelector('.btn-toggle');
-      if (btn) btn.textContent = '✓';
-    }
-  }
-  updateShopBadge();
-
-  const updates = { quantity: newQty };
-  if (newQty === 0) updates.in_stock = false;
-  const data = await api(`/api/items/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates) });
-  if (data) {
-    items[idx] = data;
-    // Patch if server returned different quantity
-    if (data.quantity !== newQty && el) {
-      const qtySpan = el.querySelector('.qty-ctrl span');
-      if (qtySpan) qtySpan.textContent = `${data.quantity} ${data.unit || 'pcs'}`;
-    }
-  } else {
-    // Revert on failure
-    items[idx] = { ...items[idx], quantity: prevQty, in_stock: prevStock };
-    if (el) {
-      const qtySpan = el.querySelector('.qty-ctrl span');
-      if (qtySpan) qtySpan.textContent = `${prevQty} ${items[idx].unit || 'pcs'}`;
-      if (newQty === 0) {
-        el.classList.toggle('out', !prevStock);
-        const btn = el.querySelector('.btn-toggle');
-        if (btn) btn.textContent = prevStock ? 'Out' : '✓';
-      }
-    }
-  }
-  updateShopBadge();
-}
-
-let pendingDeleteId = null;
-function del(id) {
-  haptic('medium');
-  const item = items.find(i => i.id === id);
-  pendingDeleteId = id;
-  document.getElementById('confirm-del-name').textContent = item.name;
-  document.getElementById('confirmDeleteModal').classList.add('show');
-}
-async function confirmDel() {
-  closeModal('confirmDeleteModal');
-  const id = pendingDeleteId;
-  if (!id) return;
-  haptic('heavy');
-  const el = document.querySelector(`.item[data-id="${id}"]`);
-  const item = items.find(i => i.id === id);
-  if (el) el.classList.add('removing');
-  deletedHistory.push(item);
-  if (deletedHistory.length > 10) deletedHistory.shift();
-  await new Promise(r => setTimeout(r, 250));
-  await api(`/api/items/${id}`, { method: 'DELETE' });
-  items = items.filter(i => i.id !== id);
-  render();
-  showToast(`"${item.name}" deleted`);
-  pendingDeleteId = null;
-}
-
-async function undoLastDelete() {
-  if (!deletedHistory.length) return;
-  haptic();
-  const item = deletedHistory.pop();
-  const { id, ...rest } = item;
-  const data = await api('/api/items', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(rest) });
-  if (data) { items.push(data); render(); }
-  hideToast();
-}
-
-async function moveToTop(id) {
-  haptic();
-  const item = items.find(i => i.id === id);
-  if (!item) return;
-  const minOrder = Math.min(...items.filter(i => i.category === item.category).map(i => i.sort_order)) - 1;
-  const data = await api(`/api/items/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ sort_order: minOrder }) });
-  if (data) { const idx = items.findIndex(i => i.id === id); if (idx >= 0) items[idx] = data; render(); showNotif(`↑ "${item.name}" moved to top`); }
-}
-
-// Edit item
-let editingId = null;
-function openEdit(id) {
-  haptic();
-  const item = items.find(i => i.id === id);
-  if (!item) return;
-  editingId = id;
-  document.getElementById('edit-name').value = item.name;
-  document.getElementById('edit-note').value = item.note || '';
-  document.getElementById('edit-qty').value = item.quantity;
-  document.getElementById('edit-unit').value = item.unit || 'pcs';
-  document.getElementById('edit-cat').value = item.category || 'Other';
-  document.getElementById('editModal').classList.add('show');
-  setTimeout(() => document.getElementById('edit-name').focus(), 100);
-}
-async function saveEdit() {
-  if (!editingId) return;
-  const name = document.getElementById('edit-name').value.trim();
-  if (!name) { document.getElementById('edit-name').style.animation = 'shake .4s'; setTimeout(() => document.getElementById('edit-name').style.animation = '', 400); return; }
-  haptic('success');
-  const updates = {
-    name,
-    note: document.getElementById('edit-note').value.trim() || null,
-    quantity: parseFloat(document.getElementById('edit-qty').value) || 1,
-    unit: document.getElementById('edit-unit').value,
-    category: document.getElementById('edit-cat').value
-  };
-  const data = await api(`/api/items/${editingId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates) });
-  if (data) {
-    const idx = items.findIndex(i => i.id === editingId);
-    if (idx >= 0) items[idx] = data;
-    render();
-    showNotif(`✅ "${name}" updated`);
-  }
-  editingId = null;
-  closeModal('editModal');
-}
+// render, updateShopBadge, closeModal, selectCat, addItem, toggle, adjustQty, changeQty,
+// del, confirmDel, undoLastDelete, moveToTop, openEdit, saveEdit
+// — all imported from render.js and actions.js
 
 // Bulk
 function openBulk() { haptic(); document.getElementById('bulkModal').classList.add('show'); }
@@ -537,7 +241,7 @@ async function bulkAdd() {
   haptic('success');
   const cat = document.getElementById('bulk-cat').value;
   const data = await api('/api/items/bulk', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({items: text, category: cat}) });
-  if (data) { items.push(...data); render(); showNotif(`✅ Added ${data.length} items`); }
+  if (data) { items.push(...data); render(); showNotif(`✅ Added ${data.length} state.items`); }
   document.getElementById('bulk-text').value = '';
   closeModal('bulkModal');
 }
@@ -546,46 +250,46 @@ async function bulkAdd() {
 function voiceInput() {
   if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) { showNotif('⚠️ Voice not supported'); return; }
   const btn = document.querySelector('.hamburger');
-  if (recognition) { recognition.stop(); return; }
+  if (state.recognition) { state.recognition.stop(); return; }
   haptic('medium');
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SR();
-  recognition.continuous = false;
-  recognition.interimResults = false;
-  recognition.lang = 'en-US';
+  state.recognition = new SR();
+  state.recognition.continuous = false;
+  state.recognition.interimResults = false;
+  state.recognition.lang = 'en-US';
   btn.classList.add('voice-active');
   showNotif('🎤 Listening...');
-  recognition.onresult = (e) => {
+  state.recognition.onresult = (e) => {
     const text = e.results[0][0].transcript;
     const match = text.match(/(?:add\s+)?(\d+)?\s*(.+?)(?:\s+to\s+(.+))?$/i);
     if (match) {
       const name = match[2].trim();
       const qty = match[1] || '1';
       const cat = match[3] ? match[3].trim() : null;
-      voicePending = { name, qty, cat };
+      state.voicePending = { name, qty, cat };
       document.getElementById('voice-heard').textContent = `"${text}"`;
       document.getElementById('voice-parsed').innerHTML = `<b>${name}</b> ×${qty}${cat ? ` → ${cat}` : ''}`;
       document.getElementById('voiceConfirmModal').classList.add('show');
     }
     haptic('success');
   };
-  recognition.onend = () => { btn.classList.remove('voice-active'); recognition = null; };
-  recognition.onerror = () => { btn.classList.remove('voice-active'); recognition = null; showNotif('⚠️ Voice failed'); };
-  recognition.start();
+  state.recognition.onend = () => { btn.classList.remove('voice-active'); state.recognition = null; };
+  state.recognition.onerror = () => { btn.classList.remove('voice-active'); state.recognition = null; showNotif('⚠️ Voice failed'); };
+  state.recognition.start();
 }
 
 async function confirmVoiceAdd() {
-  if (!voicePending) return;
+  if (!state.voicePending) return;
   closeModal('voiceConfirmModal');
-  document.getElementById('inp-name').value = voicePending.name;
-  document.getElementById('inp-qty').value = voicePending.qty;
-  if (voicePending.cat) {
+  document.getElementById('inp-name').value = state.voicePending.name;
+  document.getElementById('inp-qty').value = state.voicePending.qty;
+  if (state.voicePending.cat) {
     const sel = document.getElementById('inp-cat');
-    for (let opt of sel.options) { if (opt.value.toLowerCase() === voicePending.cat.toLowerCase()) { sel.value = opt.value; break; } }
+    for (let opt of sel.options) { if (opt.value.toLowerCase() === state.voicePending.cat.toLowerCase()) { sel.value = opt.value; break; } }
   }
   autoDetectUnit();
   await addItem();
-  voicePending = null;
+  state.voicePending = null;
 }
 
 // Smart unit detection based on item name
@@ -610,18 +314,18 @@ function autoDetectUnit() {
   else unitSel.value = 'pcs';
 }
 
-// Autocomplete from master items
-let acTimer = null;
+// Autocomplete from master state.items
+let state.acTimer = null;
 function onNameInput() {
   autoDetectUnit();
-  clearTimeout(acTimer);
+  clearTimeout(state.acTimer);
   const q = document.getElementById('inp-name').value.trim();
   if (q.length < 2) { hideAc(); return; }
-  acTimer = setTimeout(() => fetchMasterItems(q), 250);
+  state.acTimer = setTimeout(() => fetchMasterItems(q), 250);
 }
 
 async function fetchMasterItems(q) {
-  const data = await api(`/api/master-items?q=${encodeURIComponent(q)}`);
+  const data = await api(`/api/master-state.items?q=${encodeURIComponent(q)}`);
   if (!data || !data.length) { hideAc(); return; }
   window._acResults = data;
   const list = document.getElementById('ac-list');
@@ -660,7 +364,7 @@ function shopSelectAll(checked) {
 function renderShop() {
   const outItems = items.filter(it => !it.in_stock);
   let html = '';
-  if (!outItems.length) { html = '<p style="color:var(--muted);text-align:center;margin-top:30px">All items in stock! 🎉</p>'; }
+  if (!outItems.length) { html = '<p style="color:var(--muted);text-align:center;margin-top:30px">All state.items in stock! 🎉</p>'; }
   // Group by category
   const grouped = {};
   outItems.forEach(it => { const c = it.category || 'Other'; if (!grouped[c]) grouped[c] = []; grouped[c].push(it); });
@@ -735,7 +439,7 @@ function shareList() {
       grouped[cat].forEach(it => { text += `☐ ${it.name} ×${it.quantity}\n`; });
     }
   } else {
-    text += '\n✅ All items in stock!';
+    text += '\n✅ All state.items in stock!';
   }
   if (navigator.share) {
     navigator.share({ title: 'Shopping List', text });
@@ -748,21 +452,21 @@ function shareList() {
 // Notifications — imported from utils.js
 
 // Smart polling (30s, pauses when tab hidden, refreshes on visibility)
-let lastDataHash = '';
+let state.lastDataHash = '';
 let pollTimer = null;
 
 function startPolling() {
   stopPolling();
   pollTimer = setInterval(async () => {
-    if (realtimeChannel) return;
+    if (state.realtimeChannel) return;
     if (document.hidden) return;
     const data = await api('/api/items');
     if (!data || !Array.isArray(data)) return;
     const hash = JSON.stringify(data);
-    if (hash !== lastDataHash) {
-      lastDataHash = hash;
-      items = data;
-      localStorage.setItem('grocery_items', JSON.stringify(items));
+    if (hash !== state.lastDataHash) {
+      state.lastDataHash = hash;
+      state.items = data;
+      localStorage.setItem('grocery_items', JSON.stringify(state.items));
       const scrollY = window.scrollY;
       render();
       window.scrollTo(0, scrollY);
@@ -781,10 +485,10 @@ document.addEventListener('visibilitychange', () => {
       const data = await api('/api/items');
       if (data && Array.isArray(data)) {
         const hash = JSON.stringify(data);
-        if (hash !== lastDataHash) {
-          lastDataHash = hash;
-          items = data;
-          localStorage.setItem('grocery_items', JSON.stringify(items));
+        if (hash !== state.lastDataHash) {
+          state.lastDataHash = hash;
+          state.items = data;
+          localStorage.setItem('grocery_items', JSON.stringify(state.items));
           const scrollY = window.scrollY;
           render();
           window.scrollTo(0, scrollY);
@@ -852,11 +556,11 @@ function exportPDF() {
 document.getElementById('inp-name').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
 
 // ── UNIFIED SEARCH + ADD FROM CATALOG ──────────────────────────────
-let masterSearchTimer = null;
-let lastMasterResults = [];
+let state.masterSearchTimer = null;
+let state.lastMasterResults = [];
 
 function onSearchInput(value) {
-  render(); // filter existing items as usual
+  render(); // filter existing state.items as usual
   const q = value.trim();
   const sugBox = document.getElementById('search-suggestions');
 
@@ -865,23 +569,23 @@ function onSearchInput(value) {
 
   if (!q || q.length < 2) {
     sugBox.style.display = 'none';
-    lastMasterResults = [];
+    state.lastMasterResults = [];
     return;
   }
 
-  clearTimeout(masterSearchTimer);
-  masterSearchTimer = setTimeout(async () => {
-    const data = await api(`/api/master-items?q=${encodeURIComponent(q)}`);
+  clearTimeout(state.masterSearchTimer);
+  state.masterSearchTimer = setTimeout(async () => {
+    const data = await api(`/api/master-state.items?q=${encodeURIComponent(q)}`);
     if (!data || !Array.isArray(data)) {
       // API failed, but still show "Add as custom item" option
-      lastMasterResults = [];
+      state.lastMasterResults = [];
       renderSuggestions(q);
       return;
     }
 
-    // Filter out items already in the family list
+    // Filter out state.items already in the family list
     const existingNames = new Set(items.map(i => i.name.toLowerCase()));
-    lastMasterResults = data.filter(it => !existingNames.has(it.name.toLowerCase()));
+    state.lastMasterResults = data.filter(it => !existingNames.has(it.name.toLowerCase()));
 
     renderSuggestions(q);
   }, 300);
@@ -891,10 +595,10 @@ function renderSuggestions(query) {
   const sugBox = document.getElementById('search-suggestions');
   let html = '';
 
-  if (lastMasterResults.length > 0) {
+  if (state.lastMasterResults.length > 0) {
     html += `<div class="sug-section">➕ Add from catalog</div>`;
-    for (let i = 0; i < lastMasterResults.length; i++) {
-      const it = lastMasterResults[i];
+    for (let i = 0; i < state.lastMasterResults.length; i++) {
+      const it = state.lastMasterResults[i];
       html += `<div class="sug-item">
         <div class="si-info">
           <div class="si-name">${esc(it.name)}</div>
@@ -921,14 +625,14 @@ function renderSuggestions(query) {
 }
 
 async function quickAddByIndex(idx) {
-  const it = lastMasterResults[idx];
+  const it = state.lastMasterResults[idx];
   if (!it) return;
   haptic('success');
 
   // Optimistic: add to list and remove from suggestions immediately
   const tempId = -Date.now();
   items.push({ id: tempId, name: it.name, category: it.category, quantity: it.default_quantity || 1, unit: it.unit || 'pcs', in_stock: true, sort_order: 9999, added_by: 'You', _optimistic: true });
-  lastMasterResults = lastMasterResults.filter(x => x.name !== it.name);
+  state.lastMasterResults = state.lastMasterResults.filter(x => x.name !== it.name);
   const q = document.getElementById('main-search').value.trim();
   renderSuggestions(q);
   render();
@@ -939,16 +643,16 @@ async function quickAddByIndex(idx) {
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ name: it.name, category: it.category, quantity: it.default_quantity || 1, unit: it.unit || 'pcs' })
   });
-  items = items.filter(i => i.id !== tempId);
+  state.items = items.filter(i => i.id !== tempId);
   if (data) {
     if (data.merged) {
       const i = items.findIndex(x => x.id === data.id);
-      if (i >= 0) items[i] = data;
+      if (i >= 0) state.items[i] = data;
       showNotif(`✅ "${data.name}" qty updated to ${data.quantity}`);
     } else {
       items.push(data);
     }
-    localStorage.setItem('grocery_items', JSON.stringify(items));
+    localStorage.setItem('grocery_items', JSON.stringify(state.items));
     render();
   }
 }
@@ -965,13 +669,13 @@ async function quickAddCustom() {
   if (data) {
     if (data.merged) {
       const i = items.findIndex(x => x.id === data.id);
-      if (i >= 0) items[i] = data;
+      if (i >= 0) state.items[i] = data;
       showNotif(`✅ "${data.name}" qty updated to ${data.quantity}`);
     } else {
       items.push(data);
       showNotif(`✅ Added "${name}"`);
     }
-    localStorage.setItem('grocery_items', JSON.stringify(items));
+    localStorage.setItem('grocery_items', JSON.stringify(state.items));
     document.getElementById('main-search').value = '';
     document.getElementById('search-suggestions').style.display = 'none';
     render();
@@ -989,7 +693,7 @@ function clearSearch() {
   document.getElementById('main-search').value = '';
   document.getElementById('search-suggestions').style.display = 'none';
   document.getElementById('search-clear').classList.remove('show');
-  lastMasterResults = [];
+  state.lastMasterResults = [];
   render();
 }
 
