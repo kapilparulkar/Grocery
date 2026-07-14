@@ -60,24 +60,39 @@ A **family grocery list PWA** that enables multiple family members to manage a s
 ```
 Grocery/
 ├── public/
-│   ├── index.html         ← Entry point: checks auth, redirects
-│   ├── auth.html          ← Login screen + family create/join flows
-│   ├── app.html           ← Main app (~1400 lines: list, shopping mode, drawer, modals)
-│   ├── sw.js              ← Service worker (cache-first for assets, skip API)
-│   ├── manifest.json      ← PWA manifest (installable on mobile)
-│   └── _headers           ← Custom CORS headers for Netlify CDN
+│   ├── app.html              ← HTML shell (253 lines, structure only)
+│   ├── css/
+│   │   └── app.css           ← All styles (230 lines)
+│   ├── js/
+│   │   ├── main.js           ← Entry point: imports, realtime, polling, search, gestures, drawer, init (~290 lines)
+│   │   ├── config.js         ← Supabase URL/key, category constants
+│   │   ├── state.js          ← Shared mutable state object
+│   │   ├── utils.js          ← esc(), haptic(), showNotif(), showToast(), hideToast()
+│   │   ├── api.js            ← fetch wrapper, auth headers, offline queue
+│   │   ├── render.js         ← render(), updateShopBadge(), showSkeleton()
+│   │   ├── actions.js        ← addItem, toggle, changeQty, del, openEdit, saveEdit, etc.
+│   │   ├── theme.js          ← toggleTheme, initTheme
+│   │   ├── onboarding.js     ← showOnboarding, nextOnboardingStep, dismissOnboarding
+│   │   ├── bulk.js           ← openBulk, bulkAdd
+│   │   ├── voice.js          ← voiceInput, confirmVoiceAdd, autoDetectUnit
+│   │   ├── family.js         ← loadFamilies, switchFamily, toggleFamilySwitcher
+│   │   ├── shop.js           ← switchView, renderShop, doneShop, shopSelectAll
+│   │   └── share.js          ← shareList, exportPDF
+│   ├── sw.js                 ← Service worker (cache v8, all modules cached)
+│   ├── manifest.json         ← PWA manifest
+│   └── _headers              ← Custom CORS headers for Netlify CDN
 ├── netlify/functions/
-│   ├── api.js             ← All API logic (auth, family, items CRUD, master search)
-│   └── verify.js          ← Standalone token verification
+│   ├── api.js                ← All API logic (auth, family, items CRUD, master search)
+│   └── verify.js             ← Standalone token verification
 ├── mcp/
 │   └── supabase_mcp_server.py  ← Python MCP server for dev tooling
 ├── sql/
-│   ├── master_items.sql       ← Master catalog schema + seed data (120+ items)
+│   ├── master_items.sql       ← Master catalog schema + seed data
 │   └── master_items_full.sql  ← Extended seed data
-├── netlify.toml           ← Netlify config: publish dir, functions, redirects
-├── package.json           ← npm deps and scripts
-├── README.md              ← Quick setup guide (subset of this file)
-└── PROJECT_KNOWLEDGE.md   ← This file (complete project reference)
+├── netlify.toml              ← Netlify config: publish dir, functions, redirects
+├── package.json              ← npm deps and scripts
+├── PROJECT_KNOWLEDGE.md      ← This file
+└── REFACTOR_TASKS.md         ← Refactoring task tracker
 ```
 
 ---
@@ -344,7 +359,8 @@ A custom Python MCP server at `mcp/supabase_mcp_server.py` provides direct datab
 
 ## Design Decisions
 
-- **No framework/bundler** — trivial deployment (static files + functions). Trade-off: `app.html` is ~1400 lines.
+- **No framework/bundler** — uses native ES modules (`<script type="module">`) with no build step. 14 focused JS files loaded via HTTP/2 multiplexing.
+- **Modular architecture** — split from a 1417-line monolith into 14 files. Each module imports only what it needs. Shared state via `state.js` object.
 - **Supabase service key backend-only** — admin operations use service key server-side. Anon key is safe for client.
 - **Default Indian grocery items** — seeded on family creation from master_items catalog.
 - **Invite codes** — 6-char uppercase, easy to share verbally.
@@ -416,7 +432,7 @@ Sweeteners & Baking | Frozen | Bakery | Household | Personal Care | Baby Care
 
 ## Known Limitations
 
-1. **Monolithic app.html** — 1400+ lines in a single file
+1. ~~**Monolithic app.html**~~ ✅ Resolved — split into 14 ES modules
 2. **No tests** — no test framework or coverage
 3. **No CI/CD pipeline** — relies on Netlify auto-deploy
 4. **No rate limiting** — beyond Netlify's built-in limits
@@ -425,6 +441,7 @@ Sweeteners & Baking | Frozen | Bakery | Household | Personal Care | Baby Care
 7. **Shopping mode loses progress on refresh** — checked state is DOM-only
 8. **No token refresh** — tokens expire after 1h without auto-renewal
 9. **verify.js is redundant** — token verification already done in api.js
+10. **Inline onclick handlers** — still use `window.*` exports (optional Phase 3 cleanup)
 
 ---
 
@@ -459,4 +476,4 @@ Sweeteners & Baking | Frozen | Bakery | Household | Personal Care | Baby Care
 
 ---
 
-*Last updated: July 14, 2026*
+*Last updated: July 14, 2026 — Refactoring complete (Phase 1-3)*
