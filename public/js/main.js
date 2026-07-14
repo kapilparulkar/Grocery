@@ -1,18 +1,22 @@
-let items = [];
-let deletedHistory = [];
-let toastTimer = null;
-let activeCat = 'All';
-let recognition = null;
-let isOnline = navigator.onLine;
-let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
-let voicePending = null;
+// ── Grocery App — Main Entry Point ──
+import { SUPABASE_URL, SUPABASE_KEY, catOrder, catEmoji } from './config.js';
+import { state } from './state.js';
+import { esc, haptic, showNotif, showToast, hideToast } from './utils.js';
+import { api, updateOfflineStatus, flushOfflineQueue } from './api.js';
 
-const catOrder = ['Produce','Dairy','Meat','Bakery','Frozen','Beverages','Snacks','Household','Personal Care','Other'];
-const catEmoji = {Produce:'🥬',Dairy:'🥛',Meat:'🥩',Bakery:'🍞',Frozen:'🧊',Beverages:'☕',Snacks:'🍪',Household:'🧹','Personal Care':'🧴',Other:'📦'};
-let realtimeChannel = null;
-let activeFamilyId = localStorage.getItem('active_family_id') || null;
-let allFamilies = [];
-let supabaseClient = null;
+// ── Local aliases for state (backward compat during migration) ──
+let items = state.items;
+let deletedHistory = state.deletedHistory;
+let toastTimer = state.toastTimer;
+let activeCat = state.activeCat;
+let recognition = state.recognition;
+let isOnline = state.isOnline;
+let offlineQueue = state.offlineQueue;
+let voicePending = state.voicePending;
+let realtimeChannel = state.realtimeChannel;
+let activeFamilyId = state.activeFamilyId;
+let allFamilies = state.allFamilies;
+let supabaseClient = state.supabaseClient;
 
 // ── QUICK WIN: Show cached data instantly, or skeleton if no cache ──
 (function renderCachedItems() {
@@ -53,8 +57,6 @@ function initRealtime() {
     realtimeChannel = null;
   }
   try {
-    const SUPABASE_URL = 'https://hgnyfhilnbcoemxfpozm.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhnbnlmaGlsbmJjb2VteGZwb3ptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MTYyNTgsImV4cCI6MjA5NzA5MjI1OH0.o8ZTGLDH0be9FAkRkKYcm-MNEOZ44GG1uZuKuZqQLj4';
     if (!supabaseClient) {
       supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     }
@@ -88,39 +90,12 @@ function initRealtime() {
   }
 }
 
-// Offline queue
-function updateOfflineStatus() {
-  isOnline = navigator.onLine;
-  document.getElementById('offline-bar').classList.toggle('show', !isOnline);
-  if (isOnline) flushOfflineQueue();
-}
-
-async function flushOfflineQueue() {
-  if (!offlineQueue.length) return;
-  const queue = [...offlineQueue];
-  offlineQueue = [];
-  localStorage.setItem('offlineQueue', '[]');
-  for (const op of queue) {
-    try {
-      await fetch(op.url, op.opts);
-    } catch(e) {
-      offlineQueue.push(op);
-    }
-  }
-  localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
-  if (!offlineQueue.length) { showNotif('✅ Synced!'); load(); }
-}
+// Offline queue — imported from api.js
 
 window.addEventListener('online', updateOfflineStatus);
 window.addEventListener('offline', updateOfflineStatus);
 
-// Haptic
-function haptic(style = 'light') {
-  if (navigator.vibrate) {
-    const p = { light: 10, medium: 25, heavy: 50, success: [10, 50, 10] };
-    navigator.vibrate(p[style] || 10);
-  }
-}
+// Haptic — imported from utils.js
 
 // Theme
 function toggleTheme() {
@@ -210,39 +185,7 @@ function toggleDeleteMode() {
   document.getElementById('view-home').classList.toggle('delete-mode');
 }
 
-// API with auth token
-function authHeaders(extra) {
-  const token = localStorage.getItem('sb_token');
-  const h = {'Content-Type':'application/json','Authorization':'Bearer '+token};
-  if (activeFamilyId) h['X-Family-Id'] = activeFamilyId;
-  return Object.assign(h, extra||{});
-}
-async function api(url, opts) {
-  if (!opts) opts = {};
-  opts.headers = authHeaders(opts.headers);
-  try {
-    if (!navigator.onLine) {
-      if (opts.method && opts.method !== 'GET') {
-        offlineQueue.push({ url, opts });
-        localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
-        showNotif('📡 Saved offline — will sync later');
-      }
-      return null;
-    }
-    const r = await fetch(url, opts);
-    if (r.status === 401) { localStorage.removeItem('sb_token'); window.location.href='/auth.html'; return null; }
-    return await r.json();
-  } catch(e) {
-    if (opts.method && opts.method !== 'GET') {
-      offlineQueue.push({ url, opts });
-      localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
-      showNotif('📡 Saved offline — will sync later');
-    } else {
-      showNotif('⚠️ Server unreachable');
-    }
-    return null;
-  }
-}
+// API — imported from api.js
 
 async function load() {
   // Load families on first load
@@ -802,11 +745,7 @@ function shareList() {
   }
 }
 
-// Notifications
-function showNotif(msg) { const el = document.getElementById('notif'); el.textContent = msg; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 3000); }
-function showToast(msg) { document.getElementById('toast-msg').textContent = msg; document.getElementById('toast').classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, 5000); }
-function hideToast() { document.getElementById('toast').classList.remove('show'); }
-function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+// Notifications — imported from utils.js
 
 // Smart polling (30s, pauses when tab hidden, refreshes on visibility)
 let lastDataHash = '';
@@ -1144,6 +1083,7 @@ function dismissOnboarding() {
 }
 
 // Refresh token via Supabase then load
+window._load = load; // expose for offline queue flush
 (function initApp() {
   const token = localStorage.getItem('sb_token');
   if (!token) { window.location.href = '/auth.html'; return; }
