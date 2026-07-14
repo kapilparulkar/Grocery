@@ -82,8 +82,10 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 
-.search { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; font-size: 16px; background: var(--card); color: var(--text); transition: border-color .2s; }
+.search { width: 100%; padding: 10px; padding-right: 36px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; font-size: 16px; background: var(--card); color: var(--text); transition: border-color .2s; }
 .search:focus { border-color: var(--green); outline: none; }
+.search-clear { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: var(--border); border: none; color: var(--text); width: 22px; height: 22px; border-radius: 50%; font-size: .75rem; cursor: pointer; display: none; align-items: center; justify-content: center; line-height: 1; }
+.search-clear.show { display: flex; }
 .cat-tabs { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
 .cat-tabs::-webkit-scrollbar { height: 0; }
 .cat-tab { padding: 6px 12px; border-radius: 20px; font-size: .75rem; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; white-space: nowrap; transition: all .2s; }
@@ -306,7 +308,10 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 <!-- HOME VIEW -->
 <div id="view-home">
   <div class="pull-indicator" id="pull-indicator">↓ Pull to refresh</div>
-  <input class="search" id="main-search" placeholder="Search or add items..." oninput="onSearchInput(this.value)">
+  <div style="position:relative;margin-bottom:10px">
+    <input class="search" id="main-search" placeholder="Search or add items..." oninput="onSearchInput(this.value)" style="margin-bottom:0">
+    <button class="search-clear" id="search-clear" onclick="clearSearch()">✕</button>
+  </div>
   <div id="search-suggestions" style="display:none"></div>
   <div class="cat-tabs" id="cat-tabs"></div>
   <div id="list"></div>
@@ -1243,6 +1248,9 @@ function onSearchInput(value) {
   const q = value.trim();
   const sugBox = document.getElementById('search-suggestions');
 
+  // Show/hide clear button
+  document.getElementById('search-clear').classList.toggle('show', q.length > 0);
+
   if (!q || q.length < 2) {
     sugBox.style.display = 'none';
     lastMasterResults = [];
@@ -1354,11 +1362,17 @@ async function quickAddCustom() {
 // Hide suggestions on Escape
 document.getElementById('main-search').addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    document.getElementById('main-search').value = '';
-    document.getElementById('search-suggestions').style.display = 'none';
-    render();
+    clearSearch();
   }
 });
+
+function clearSearch() {
+  document.getElementById('main-search').value = '';
+  document.getElementById('search-suggestions').style.display = 'none';
+  document.getElementById('search-clear').classList.remove('show');
+  lastMasterResults = [];
+  render();
+}
 
 // Close family switcher when clicking outside
 document.addEventListener('click', (e) => {
