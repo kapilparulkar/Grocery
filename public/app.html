@@ -820,9 +820,9 @@ function render() {
         <div class="swipe-bg right">Restock ▶</div>
         <div class="info" onclick="openEdit(${it.id})" style="cursor:pointer"><div class="name">${esc(it.name)}</div>${noteHtml}${it.added_by ? `<div style="font-size:.7rem;color:var(--muted)">Added by ${esc(it.added_by)}</div>` : ''}</div>
         <div class="qty-ctrl">
-          <button onclick="changeQty(${it.id},${it.quantity - 1})">−</button>
+          <button onclick="adjustQty(${it.id},-1)">−</button>
           <span>${it.quantity} ${esc(it.unit || 'pcs')}</span>
-          <button onclick="changeQty(${it.id},${it.quantity + 1})">+</button>
+          <button onclick="adjustQty(${it.id},1)">+</button>
         </div>
         <button class="btn-move-top" onclick="moveToTop(${it.id})">↑</button>
         <button class="btn-toggle" onclick="toggle(${it.id})">${toggleLabel}</button>
@@ -883,44 +883,98 @@ async function addItem() {
 
 async function toggle(id) {
   haptic('medium');
-  // Optimistic UI: toggle immediately in local state
   const idx = items.findIndex(i => i.id === id);
-  if (idx >= 0) {
-    items[idx] = { ...items[idx], in_stock: !items[idx].in_stock };
-    render();
+  if (idx < 0) return;
+  const prevState = items[idx].in_stock;
+  items[idx] = { ...items[idx], in_stock: !prevState };
+
+  // Patch DOM directly — no full render
+  const el = document.querySelector(`.item[data-id="${id}"]`);
+  if (el) {
+    el.classList.toggle('out', !items[idx].in_stock);
+    const btn = el.querySelector('.btn-toggle');
+    if (btn) btn.textContent = items[idx].in_stock ? 'Out' : '✓';
   }
+  updateShopBadge();
+
   const data = await api(`/api/items/${id}/toggle`, { method: 'POST' });
   if (data) {
     items[idx] = data;
-  } else if (idx >= 0) {
+    // If server disagrees, patch again
+    if (data.in_stock !== !prevState) {
+      if (el) {
+        el.classList.toggle('out', !data.in_stock);
+        const btn = el.querySelector('.btn-toggle');
+        if (btn) btn.textContent = data.in_stock ? 'Out' : '✓';
+      }
+    }
+  } else {
     // Revert on failure
-    items[idx] = { ...items[idx], in_stock: !items[idx].in_stock };
+    items[idx] = { ...items[idx], in_stock: prevState };
+    if (el) {
+      el.classList.toggle('out', !prevState);
+      const btn = el.querySelector('.btn-toggle');
+      if (btn) btn.textContent = prevState ? 'Out' : '✓';
+    }
+    showNotif('⚠️ Failed to update — reverted');
   }
-  render();
   updateShopBadge();
+}
+
+// Helper: looks up current qty from items array, then calls changeQty with the adjusted value
+function adjustQty(id, delta) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  changeQty(id, item.quantity + delta);
 }
 
 async function changeQty(id, newQty) {
   if (newQty < 0) return;
   haptic();
-  // Optimistic UI: update quantity immediately
   const idx = items.findIndex(i => i.id === id);
-  const prevQty = idx >= 0 ? items[idx].quantity : null;
-  if (idx >= 0) {
-    items[idx] = { ...items[idx], quantity: newQty };
-    if (newQty === 0) items[idx].in_stock = false;
-    render();
+  if (idx < 0) return;
+  const prevQty = items[idx].quantity;
+  const prevStock = items[idx].in_stock;
+  items[idx] = { ...items[idx], quantity: newQty };
+  if (newQty === 0) items[idx].in_stock = false;
+
+  // Patch DOM directly — no full render
+  const el = document.querySelector(`.item[data-id="${id}"]`);
+  if (el) {
+    const qtySpan = el.querySelector('.qty-ctrl span');
+    if (qtySpan) qtySpan.textContent = `${newQty} ${items[idx].unit || 'pcs'}`;
+    if (newQty === 0) {
+      el.classList.add('out');
+      const btn = el.querySelector('.btn-toggle');
+      if (btn) btn.textContent = '✓';
+    }
   }
+  updateShopBadge();
+
   const updates = { quantity: newQty };
   if (newQty === 0) updates.in_stock = false;
   const data = await api(`/api/items/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates) });
   if (data) {
-    if (idx >= 0) items[idx] = data;
-  } else if (idx >= 0 && prevQty !== null) {
+    items[idx] = data;
+    // Patch if server returned different quantity
+    if (data.quantity !== newQty && el) {
+      const qtySpan = el.querySelector('.qty-ctrl span');
+      if (qtySpan) qtySpan.textContent = `${data.quantity} ${data.unit || 'pcs'}`;
+    }
+  } else {
     // Revert on failure
-    items[idx] = { ...items[idx], quantity: prevQty };
+    items[idx] = { ...items[idx], quantity: prevQty, in_stock: prevStock };
+    if (el) {
+      const qtySpan = el.querySelector('.qty-ctrl span');
+      if (qtySpan) qtySpan.textContent = `${prevQty} ${items[idx].unit || 'pcs'}`;
+      if (newQty === 0) {
+        el.classList.toggle('out', !prevStock);
+        const btn = el.querySelector('.btn-toggle');
+        if (btn) btn.textContent = prevStock ? 'Out' : '✓';
+      }
+    }
   }
-  render();
+  updateShopBadge();
 }
 
 let pendingDeleteId = null;
