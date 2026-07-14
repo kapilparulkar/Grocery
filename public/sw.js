@@ -1,4 +1,4 @@
-const CACHE = 'grocery-v7';
+const CACHE = 'grocery-v8';
 const ASSETS = [
   '/',
   '/manifest.json',
@@ -10,6 +10,13 @@ const ASSETS = [
   '/js/api.js',
   '/js/render.js',
   '/js/actions.js',
+  '/js/theme.js',
+  '/js/onboarding.js',
+  '/js/bulk.js',
+  '/js/voice.js',
+  '/js/family.js',
+  '/js/shop.js',
+  '/js/share.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
 
