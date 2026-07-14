@@ -33,6 +33,7 @@ A **family grocery list PWA** that enables multiple family members to manage a s
 │   Auth   → Google OAuth + JWT session mgmt      │
 │   DB     → PostgreSQL (families, members, items)│
 │   RLS    → Row Level Security (data isolation)  │
+│   Realtime → postgres_changes subscriptions     │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -48,6 +49,8 @@ A **family grocery list PWA** that enables multiple family members to manage a s
 | Auth | Google OAuth via Supabase |
 | Hosting | Netlify (static + functions) |
 | PWA | Service worker (`sw.js`) + `manifest.json` |
+| Realtime | Supabase Realtime (postgres_changes) |
+| MCP Server | Python (`mcp/supabase_mcp_server.py`) — local dev tooling |
 | Dependencies | `@supabase/supabase-js`, `@netlify/functions`, `netlify-cli` |
 
 ---
@@ -55,31 +58,128 @@ A **family grocery list PWA** that enables multiple family members to manage a s
 ## File Structure
 
 ```
-grocery-app-netlify/
+Grocery/
 ├── public/
-│   ├── index.html         ← Entry point: checks auth, redirects to auth.html or app.html
+│   ├── index.html         ← Entry point: checks auth, redirects
 │   ├── auth.html          ← Login screen + family create/join flows
-│   ├── app.html           ← Main app (list view, shopping mode, drawer, modals)
-│   ├── sw.js              ← Service worker (cache-first for assets, network for API)
+│   ├── app.html           ← Main app (~1400 lines: list, shopping mode, drawer, modals)
+│   ├── sw.js              ← Service worker (cache-first for assets, skip API)
 │   ├── manifest.json      ← PWA manifest (installable on mobile)
-│   └── _headers           ← Custom HTTP headers for Netlify CDN
+│   └── _headers           ← Custom CORS headers for Netlify CDN
 ├── netlify/functions/
-│   ├── api.js             ← All API logic (auth, family, items CRUD)
+│   ├── api.js             ← All API logic (auth, family, items CRUD, master search)
 │   └── verify.js          ← Standalone token verification
-├── netlify.toml           ← Netlify config: publish dir, function dir, redirects
+├── mcp/
+│   └── supabase_mcp_server.py  ← Python MCP server for dev tooling
+├── sql/
+│   ├── master_items.sql       ← Master catalog schema + seed data (120+ items)
+│   └── master_items_full.sql  ← Extended seed data
+├── netlify.toml           ← Netlify config: publish dir, functions, redirects
 ├── package.json           ← npm deps and scripts
-├── .env.example           ← Required environment variables template
-├── fix_api.py             ← One-off migration patch (can be removed)
-├── README.md              ← Setup & deployment guide
-├── GOOGLE_AUTH_PLAN.md    ← Auth + multi-family implementation plan
-└── PROJECT_KNOWLEDGE.md   ← This file
+├── README.md              ← Quick setup guide (subset of this file)
+└── PROJECT_KNOWLEDGE.md   ← This file (complete project reference)
+```
+
+---
+
+## Setup Guide
+
+### Step 1: Create Supabase Project
+
+1. Go to [supabase.com](https://supabase.com) → Sign up → New Project
+2. Note your **Project URL** and **anon public key** (Settings → API)
+3. Run the SQL setup (see Database Schema section below)
+
+### Step 2: Database Setup
+
+Run in Supabase SQL Editor:
+
+```sql
+CREATE TABLE families (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  invite_code TEXT UNIQUE NOT NULL,
+  created_by UUID NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE family_members (
+  id SERIAL PRIMARY KEY,
+  family_id UUID REFERENCES families(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
+  display_name TEXT NOT NULL,
+  role TEXT DEFAULT 'member',
+  joined_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(family_id, user_id)
+);
+
+CREATE TABLE items (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  category TEXT DEFAULT 'Other',
+  quantity NUMERIC DEFAULT 1,
+  unit TEXT DEFAULT 'pcs',
+  in_stock BOOLEAN DEFAULT true,
+  sort_order INTEGER DEFAULT 0,
+  family_id UUID REFERENCES families(id) ON DELETE CASCADE,
+  added_by TEXT,
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable realtime
+ALTER TABLE items REPLICA IDENTITY FULL;
+
+-- RLS
+ALTER TABLE families ENABLE ROW LEVEL SECURITY;
+ALTER TABLE family_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow all" ON families FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON family_members FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON items FOR ALL USING (true) WITH CHECK (true);
+```
+
+Then run `sql/master_items.sql` to populate the autocomplete catalog.
+
+### Step 3: Deploy to Netlify
+
+1. Push to GitHub
+2. Go to [netlify.com](https://netlify.com) → Import project from GitHub
+3. Build settings:
+   - Build command: *(leave empty)*
+   - Publish directory: `public`
+4. Deploy
+
+### Step 4: Environment Variables
+
+In Netlify dashboard → Site settings → Environment variables:
+
+| Key | Value |
+|-----|-------|
+| `SUPABASE_URL` | `https://your-project.supabase.co` |
+| `SUPABASE_ANON_KEY` | Your anon/public key |
+| `SUPABASE_SERVICE_KEY` | Your service role key (secret) |
+
+Redeploy after adding variables.
+
+### Step 5: Enable Realtime
+
+In Supabase dashboard: **Database** → **Replication** → Enable realtime for the `items` table.
+
+### Local Development
+
+```bash
+npm install
+npx netlify dev
+# Opens at http://localhost:8888
 ```
 
 ---
 
 ## Database Schema
 
-### Tables
+### Tables (Supabase PostgreSQL)
 
 **families**
 | Column | Type | Notes |
@@ -93,8 +193,8 @@ grocery-app-netlify/
 **family_members**
 | Column | Type | Notes |
 |--------|------|-------|
-| id | UUID (PK) | |
-| family_id | UUID → families | |
+| id | SERIAL (PK) | |
+| family_id | UUID → families | ON DELETE CASCADE |
 | user_id | UUID → auth.users | |
 | display_name | TEXT | e.g. "Dad", "Mum", "Priya" |
 | role | TEXT | `admin` or `member` |
@@ -107,16 +207,42 @@ grocery-app-netlify/
 | id | SERIAL (PK) | |
 | name | TEXT | Item name |
 | category | TEXT | Produce, Dairy, Snacks, etc. |
-| quantity | INTEGER | Default 1 |
-| in_stock | BOOLEAN | true = need to buy, false = bought |
+| quantity | NUMERIC | Default 1 |
+| unit | TEXT | pcs, kg, g, L, ml, packet, dozen, bundle |
+| in_stock | BOOLEAN | true = in stock, false = need to buy |
 | sort_order | INTEGER | Display ordering |
-| family_id | UUID → families | Data isolation |
+| family_id | UUID → families | ON DELETE CASCADE |
 | added_by | TEXT | Display name of who added |
+| note | TEXT | Optional (brand, size, etc.) |
 | created_at | TIMESTAMPTZ | |
+
+**master_items** (326 rows — catalog for autocomplete)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | SERIAL (PK) | |
+| name | TEXT (UNIQUE) | Display name |
+| aliases | TEXT[] | Alternative search names |
+| category | TEXT | Category grouping (18 categories) |
+| unit | TEXT | Default measurement unit |
+| default_quantity | NUMERIC | Default qty when adding |
+| popular_score | INTEGER | Popularity ranking (higher = more common) |
+
+**Indexes on master_items:**
+- `idx_master_name_trgm` — GIN trigram index for fuzzy search
+- `idx_master_category` — B-tree on category
+
+### Relationships
+
+```
+families (1) ──── (*) family_members (*) ──── (1) auth.users
+families (1) ──── (*) items
+```
 
 ### Row Level Security (RLS)
 
-All tables have RLS enabled. Policies ensure users can only access data belonging to families they are a member of.
+All tables have RLS enabled:
+- `families`, `family_members`, `items` — currently "allow all" (secured at API layer)
+- `master_items` — public SELECT allowed (for autocomplete)
 
 ---
 
@@ -128,56 +254,31 @@ Family-scoped endpoints use `X-Family-Id` header for multi-family users.
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/api/auth/me` | User info + all family memberships |
-| POST | `/api/auth/family/create` | Create family, add user as admin, seed items from master_items |
+| POST | `/api/auth/family/create` | Create family (limit 1 per user), seed default items |
 | POST | `/api/auth/family/join` | Join existing family via invite code |
-| GET | `/api/auth/family/members` | List members of a family (requires X-Family-Id) |
-| GET | `/api/master-items/search?q=` | Autocomplete search against master_items catalog |
+| GET | `/api/auth/family/members` | List members (requires X-Family-Id) |
+| GET | `/api/master-items?q=` | Fuzzy search master catalog (name + aliases) |
 | GET | `/api/items` | Get all items for active family |
-| POST | `/api/items` | Add single item |
+| POST | `/api/items` | Add item (deduplicates, merges quantity if exists) |
 | POST | `/api/items/bulk` | Bulk add (newline-separated text) |
-| PUT | `/api/items/:id` | Update item (name, category, quantity, in_stock) |
+| PUT | `/api/items/:id` | Update item fields |
 | POST | `/api/items/:id/toggle` | Toggle in_stock status |
 | DELETE | `/api/items/:id` | Delete item |
-| POST | `/api/items/bulk-restock` | Mark multiple items as in_stock (after shopping) |
+| POST | `/api/items/bulk-restock` | Restock multiple items (after shopping) |
 
 ---
 
 ## Authentication Flow
 
 1. User opens app → `index.html` checks for `sb_token` in localStorage
-2. If no token → redirect to `auth.html` (login screen)
-3. User clicks "Continue with Google" → Supabase OAuth redirect
-4. After Google consent → redirect back to `/auth.html` with session
+2. If no token → redirect to `auth.html`
+3. "Continue with Google" → Supabase OAuth redirect
+4. After consent → redirect back to `/auth.html` with session
 5. Supabase client extracts session, stores `access_token` in localStorage
-6. First-time user → shown family create/join screen
+6. First-time user → family create/join screen
 7. Returning user → redirected to `app.html`
 8. All API calls include `Authorization: Bearer <token>`
 9. Backend validates token via `supabase.auth.getUser()`
-
----
-
-## User Flows
-
-### New User
-```
-Open app → Google login → Family setup (create or join) → Set display name → App loads
-```
-
-### Returning User
-```
-Open app → Token valid → App loads immediately
-```
-
-### Inviting Family Members
-```
-Drawer → Invite → Show 6-char code → Share via copy/WhatsApp
-Other member: Login → Join Family → Enter code → Done
-```
-
-### Multi-Family
-```
-Header tap → Family switcher dropdown → Select another family → Items reload
-```
 
 ---
 
@@ -185,186 +286,171 @@ Header tap → Family switcher dropdown → Select another family → Items relo
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Google OAuth login | ✅ Done | Via Supabase |
-| Multi-family support | ✅ Done | Create, join, switch |
-| CRUD items | ✅ Done | Add, edit, toggle, delete |
-| Bulk add | ✅ Done | Paste newline-separated list |
-| Shopping mode | ✅ Done | Checklist + bulk restock |
-| Categories | ✅ Done | Filterable tabs |
-| Search | ✅ Done | Client-side filter |
-| Offline support | ✅ Done | Queues mutations, syncs on reconnect |
-| Voice input | ✅ Done | Web Speech API |
-| PDF export | ✅ Done | Client-side generation |
-| Share list | ✅ Done | Web Share API |
-| Dark mode | ✅ Done | Toggle with persistence |
-| PWA installable | ✅ Done | Service worker + manifest |
-| Realtime sync | ⚠️ Planned | `initRealtime()` is empty stub |
-| Swipe gestures | ⚠️ Partial | CSS exists, JS may be incomplete |
+| Google OAuth login | ✅ | Via Supabase |
+| Multi-family support | ✅ | Create, join, switch |
+| CRUD items | ✅ | Add, edit, toggle, delete |
+| Duplicate detection | ✅ | Merges quantity if item exists |
+| Bulk add | ✅ | Paste newline-separated list |
+| Shopping mode | ✅ | Checklist + bulk restock |
+| Categories | ✅ | Filterable tabs |
+| Search + autocomplete | ✅ | Client filter + master catalog suggestions |
+| Master catalog (326 items) | ✅ | Indian grocery focus with aliases |
+| Offline support | ✅ | Queues mutations, syncs on reconnect |
+| Voice input | ✅ | Web Speech API with confirmation modal |
+| PDF export | ✅ | Client-side generation + print |
+| Share list | ✅ | Web Share API / WhatsApp fallback |
+| Dark mode | ✅ | Toggle with persistence |
+| PWA installable | ✅ | Service worker + manifest |
+| Realtime sync | ✅ | Supabase postgres_changes subscription |
+| Swipe gestures | ✅ | Swipe left/right to toggle stock status |
+| Pull-to-refresh | ✅ | Pull down to reload items |
+| Onboarding tutorial | ✅ | 4-step walkthrough for new users |
+| Smart unit detection | ✅ | Auto-detects unit from item name |
+| Quantity controls | ✅ | +/- buttons inline |
+| Move to top | ✅ | Prioritize items within category |
+| Undo delete | ✅ | Toast with undo (last 10 items) |
+| Cached instant render | ✅ | Shows localStorage data immediately |
+| Smart polling | ✅ | 30s interval, pauses when tab hidden |
+| Item notes | ✅ | Optional note per item (brand, size) |
+| Search clear button | ✅ | ✕ button to clear search input |
 
 ---
 
-## Environment Variables
+## MCP Server (Dev Tooling)
 
-Required in Netlify dashboard (Site settings → Environment variables):
+A custom Python MCP server at `mcp/supabase_mcp_server.py` provides direct database access from the IDE.
 
-| Key | Description |
-|-----|-------------|
-| `SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_ANON_KEY` | Supabase anon/public key |
-| `SUPABASE_SERVICE_KEY` | Supabase service role key (for admin ops in api.js) |
+**Config:** `.kiro/settings/mcp.json` (workspace level at `c:\RnD\.kiro\settings\`)
 
----
+**Available tools:**
+- `execute_sql` — Raw SQL (needs service role key; currently limited)
+- `list_tables` — List public schema tables
+- `describe_table` — Column details
+- `query_table` — PostgREST query with filters
+- `insert_row` — Insert data
+- `update_rows` — Update with filters
+- `delete_rows` — Delete with filters
+- `get_table_row_count` — Exact count
+- `search_items` — Search master_items by name
 
-## Development
-
-```bash
-npm install
-npx netlify dev
-# Opens at http://localhost:8888
-```
-
-The `netlify dev` command serves static files from `public/` and proxies `/api/*` to the local functions runtime.
-
----
-
-## Deployment
-
-1. Push to GitHub
-2. Netlify auto-deploys from the connected repo
-3. Build command: *(none — no build step)*
-4. Publish directory: `public`
-5. Functions directory: `netlify/functions`
+**Note:** Uses `verify=False` for corporate proxy/Zscaler compatibility.
 
 ---
 
 ## Design Decisions
 
-- **No framework/bundler** — keeps deployment trivial (just static files + functions). Trade-off: harder to maintain as the app grows.
-- **Single-file SPA (app.html)** — all app logic in one file for simplicity. ~830 lines of inline CSS + JS.
-- **Supabase service key on backend only** — admin operations (cross-family queries, inserts with family_id) use the service key server-side. The anon key is public-safe.
-- **Default Indian grocery items** — seeded on family creation for the target audience.
-- **Invite codes** — 6-char uppercase alphanumeric, easy to share verbally or via message.
-- **Family-scoped data** — every item belongs to a `family_id`. API resolves the active family from user's memberships + `X-Family-Id` header.
+- **No framework/bundler** — trivial deployment (static files + functions). Trade-off: `app.html` is ~1400 lines.
+- **Supabase service key backend-only** — admin operations use service key server-side. Anon key is safe for client.
+- **Default Indian grocery items** — seeded on family creation from master_items catalog.
+- **Invite codes** — 6-char uppercase, easy to share verbally.
+- **Family-scoped data** — every item has `family_id`. API resolves active family from memberships + header.
+- **Master catalog grows organically** — new items added by users get inserted into master_items with `popular_score: 1`.
+- **Optimistic caching** — localStorage cache shown immediately, fresh data fetched in background.
+- **Single serverless function** — all routes in one `api.js` file (simpler deployment, trade-off: monolithic).
 
 ---
 
 ## Categories
 
+**In the app UI (10):**
 ```
 Produce | Dairy | Meat | Bakery | Frozen | Beverages | Snacks | Household | Personal Care | Other
 ```
 
----
-
-## Known Limitations / TODOs
-
-1. **Realtime sync not wired** — `initRealtime()` is a no-op. Devices won't see each other's changes without refresh.
-2. **No tests** — no test framework or test files.
-3. **No CI/CD pipeline** — relies on Netlify auto-deploy.
-4. **fix_api.py left in repo** — one-off patch script, should be cleaned up.
-5. **Monolithic app.html** — would benefit from splitting CSS/JS into separate files if features keep growing.
-6. **No rate limiting** — API has no throttling beyond Netlify's built-in limits.
-7. **No item reordering UI** — `sort_order` exists in DB but drag-to-reorder isn't implemented.
-
----
-
-## Performance Analysis (Mobile)
-
-### Identified Bottlenecks
-
-| # | Issue | Impact | Details |
-|---|-------|--------|---------|
-| 1 | **Cascading page loads** | High | User goes through `index.html` → API call → redirect to `app.html` → API call → API call → render. Three pages and 2+ sequential network calls before content shows. |
-| 2 | **Netlify Functions cold start** | High | Serverless functions have ~500ms–1.5s cold start. Two sequential API calls (`auth/me` then `items`) means 1.5–3s delay on first load. |
-| 3 | **Full DOM rebuild on every change** | Medium | `render()` uses `innerHTML` to rebuild the entire list (50+ items with child elements). No diffing or incremental updates — causes jank on low-end phones. |
-| 4 | **5-second polling interval** | Medium | `setInterval` fetches all items every 5s, JSON-stringifies for comparison, potentially re-renders. Wakes CPU/radio constantly on mobile. |
-| 5 | **No data caching** | Medium | Every page load fetches fresh from API. No "show cached, refresh in background" pattern. |
-| 6 | **Supabase SDK from CDN** | Low-Med | `auth.html` loads ~45KB (gzipped) supabase-js from jsdelivr CDN. If CDN is slow, auth page hangs. |
-| 7 | **Global touch listeners without RAF** | Low | `touchmove` handler runs querySelector + style updates on every frame without `requestAnimationFrame`, causing layout thrashing during swipes. |
-
-### Recommended Fixes
-
-#### High Impact
-
-| # | Fix | Effort | Details |
-|---|-----|--------|---------|
-| 1 | **Eliminate index.html redirect** | Low | Go directly to `app.html`. Handle auth check inline — show login UI if needed. Saves a full page load + one API call. |
-| 2 | **Show cached data instantly** | Low | On `app.html` load, render items from `localStorage` immediately, then fetch fresh data in background. User sees list in <100ms on repeat visits. |
-| 3 | **Single `/api/init` endpoint** | Medium | Merge `auth/me` + `items` into one API call. Returns user, memberships, AND items in a single response. Cuts 2 sequential calls to 1. |
-| 4 | **Use Netlify Edge Functions** | Medium | Move API from Node.js functions (cold start) to Edge Functions (Deno, no cold start, runs at CDN edge). Response drops from ~800ms to ~50ms. |
-
-#### Medium Impact
-
-| # | Fix | Effort | Details |
-|---|-----|--------|---------|
-| 5 | **Incremental DOM updates** | Medium | Instead of full `innerHTML` rebuild, patch only changed items using `data-id` attributes. |
-| 6 | **Reduce polling / use Visibility API** | Low | Only poll when tab is visible. Increase interval to 30s. Better: wire up Supabase Realtime (stub exists). |
-| 7 | **Debounce search rendering** | Low | Add 150ms debounce on `oninput="render()"` to avoid re-rendering on every keystroke. |
-| 8 | **Throttle swipe handlers** | Low | Wrap `touchmove` in `requestAnimationFrame` to prevent layout thrashing. |
-
-#### Low Impact (nice to have)
-
-| # | Fix | Effort | Details |
-|---|-----|--------|---------|
-| 9 | **Preconnect to Supabase** | Trivial | Add `<link rel="preconnect" href="https://...supabase.co">` in HTML head. |
-| 10 | **Self-host Supabase JS** | Low | Bundle supabase-js locally instead of fetching from CDN on auth page. |
-| 11 | **Virtualized/lazy list rendering** | Medium | For 50+ items, render only visible items using Intersection Observer. |
-| 12 | **Trim API response payload** | Low | Only return fields needed for rendering (skip `created_at`, `sort_order`). |
-
-### Quick Win Implementation
-
-```javascript
-// Show cached data instantly (add to top of app.html <script>)
-const cached = localStorage.getItem('grocery_items');
-if (cached) {
-  items = JSON.parse(cached);
-  render(); // User sees their list in <100ms
-}
-
-// In load() — save to cache after fetch
-async function load() {
-  const data = await api('/api/init'); // single endpoint
-  if (data && data.items) {
-    items = data.items;
-    localStorage.setItem('grocery_items', JSON.stringify(items));
-    render();
-  }
-}
+**In master_items catalog (18):**
+```
+Grains & Flours | Pulses & Lentils | Spices - Whole | Spices - Powder | Oils & Ghee | Dairy |
+Vegetables | Fruits | Dry Fruits & Nuts | Beverages | Snacks | Pickles & Preserves |
+Sweeteners & Baking | Frozen | Bakery | Household | Personal Care | Baby Care
 ```
 
 ---
 
-## Database: master_items Table
+## Security Review
 
-A reference/catalog table in Supabase used for autocomplete suggestions and seeding new families.
+### 🔴 Critical
 
-**Schema:**
-| Column | Type | Description |
-|--------|------|-------------|
-| id | SERIAL (PK) | Auto-increment |
-| name | TEXT | Display name (e.g. "Sooji (Semolina)") |
-| aliases | TEXT[] | Alternative search names (e.g. ["suji", "rava", "semolina"]) |
-| category | TEXT | Category grouping |
-| unit | TEXT | Measurement unit (kg, g, L, mL, pcs, pkt, bunch, dozen, roll) |
-| default_quantity | TEXT | Default qty when adding |
-| popular_score | INTEGER | Popularity ranking (higher = more common, max 99) |
+| # | Issue | Description |
+|---|-------|-------------|
+| 1 | SQL injection via search | Master-items search previously interpolated user input into `.or()` filter. **Fixed** — now uses separate `.ilike()` and `.contains()` calls with input sanitization. |
+| 2 | No family membership validation | If `X-Family-Id` header is tampered, fallback logic silently uses first family. |
+| 3 | Service key fallback to anon key | If `SUPABASE_SERVICE_KEY` is missing, admin ops run with anon key. Should fail fast. |
 
-**Categories (18):**
-Grains & Flours, Pulses & Lentils, Spices - Whole, Spices - Powder, Oils & Ghee, Dairy, Vegetables, Fruits, Dry Fruits & Nuts, Beverages, Snacks, Pickles & Preserves, Sweeteners & Baking, Frozen, Bakery, Household, Personal Care, Baby Care, Pooja & Misc, Meat & Seafood, Condiments
+### 🟠 High
 
-**Total items:** ~328 (see `master_items_seed.sql`)
+| # | Issue | Description |
+|---|-------|-------------|
+| 4 | Weak invite codes | `Math.random()` is not cryptographically secure. Should use `crypto.randomBytes()`. |
+| 5 | Wildcard CORS | `Access-Control-Allow-Origin: *` allows any site to make requests. |
+| 6 | No input length validation | Names, notes, bulk text have no max length. |
+| 7 | Bulk add no item limit | `/items/bulk` splits by newlines with no cap on item count. |
+| 8 | No brute-force protection on join | Invite codes are only 6 chars with no rate limit. |
 
-**Use cases:**
-- Seed default items when a new family is created (queries items with `popular_score >= 75`)
-- Autocomplete/suggestions when users add items via `/api/master-items/search?q=` endpoint (searches by name + aliases)
-- Smart defaults (pre-fill unit, quantity, and category from master data)
-- Sort suggestions by `popular_score`
+### 🟡 Medium
 
-**Integration status:** ✅ Wired up
-- `api.js` — `getDefaultItems()` queries `master_items` for family seeding (fallback to hardcoded list if table empty)
-- `api.js` — `GET /api/master-items/search?q=` endpoint for autocomplete
-- `app.html` — Autocomplete dropdown on the "Add Item" modal, auto-fills name, category, and quantity
+| # | Issue | Description |
+|---|-------|-------------|
+| 9 | No token refresh | Access tokens expire after 1h. App doesn't use `onAuthStateChange`. |
+| 10 | localStorage token storage | Vulnerable to XSS. HttpOnly cookies would be safer. |
+| 11 | Race condition on qty merge | Read-then-update pattern. Concurrent requests cause lost updates. |
+| 12 | No Content-Security-Policy | Missing CSP allows inline scripts, external injection. |
+
+### Recommended Fixes (Priority)
+
+1. ~~Sanitize search input~~ ✅ Done
+2. Replace `Math.random()` with `crypto.randomBytes()` for invite codes
+3. Restrict CORS to actual Netlify domain
+4. Add input validation (max lengths for name: 100, note: 500, bulk: 50 items)
+5. Fail fast if `SUPABASE_SERVICE_KEY` is missing
+6. Add token refresh via `onAuthStateChange`
+7. Use atomic SQL increment for quantity merges
+8. Add CSP header
 
 ---
 
-*Last updated: July 2026*
+## Known Limitations
+
+1. **Monolithic app.html** — 1400+ lines in a single file
+2. **No tests** — no test framework or coverage
+3. **No CI/CD pipeline** — relies on Netlify auto-deploy
+4. **No rate limiting** — beyond Netlify's built-in limits
+5. **No drag-to-reorder** — `sort_order` exists but no drag UI
+6. **Category mismatch** — app uses 10 categories, master_items uses 18
+7. **Shopping mode loses progress on refresh** — checked state is DOM-only
+8. **No token refresh** — tokens expire after 1h without auto-renewal
+9. **verify.js is redundant** — token verification already done in api.js
+
+---
+
+## Future Roadmap
+
+### Quick Wins
+- Floating "+" FAB button for quick add
+- Persist shopping mode checked state in localStorage
+- Logout confirmation dialog
+- Item count summary in header ("3 items needed")
+- Search highlighting in suggestions
+- Optimistic UI (update immediately, confirm with server)
+- Skeleton loading placeholders
+
+### Medium Effort
+- Sort options (name, recently added, quantity)
+- Search within shopping mode
+- Swipe-to-delete (left swipe past threshold)
+- Last purchased timestamp tracking
+- Export/import list as JSON backup
+- Drag-and-drop reorder
+- Better pull-to-refresh animation (spring-based)
+
+### Bigger Features
+- Push notifications (family member adds items)
+- Recurring items with scheduled auto-mark
+- Price tracking + shopping budget
+- Activity log (who did what, when)
+- Multi-language support (Hindi UI)
+- Move to component framework (Svelte + Vite) for maintainability
+- Native app wrapper (Capacitor) for app store presence
+
+---
+
+*Last updated: July 2025*
