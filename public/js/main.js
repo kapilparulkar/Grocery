@@ -1,4 +1,4 @@
-﻿let items = [];
+let items = [];
 let deletedHistory = [];
 let toastTimer = null;
 let activeCat = 'All';
@@ -8,13 +8,13 @@ let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
 let voicePending = null;
 
 const catOrder = ['Produce','Dairy','Meat','Bakery','Frozen','Beverages','Snacks','Household','Personal Care','Other'];
-const catEmoji = {Produce:'ðŸ¥¬',Dairy:'ðŸ¥›',Meat:'ðŸ¥©',Bakery:'ðŸž',Frozen:'ðŸ§Š',Beverages:'â˜•',Snacks:'ðŸª',Household:'ðŸ§¹','Personal Care':'ðŸ§´',Other:'ðŸ“¦'};
+const catEmoji = {Produce:'🥬',Dairy:'🥛',Meat:'🥩',Bakery:'🍞',Frozen:'🧊',Beverages:'☕',Snacks:'🍪',Household:'🧹','Personal Care':'🧴',Other:'📦'};
 let realtimeChannel = null;
 let activeFamilyId = localStorage.getItem('active_family_id') || null;
 let allFamilies = [];
 let supabaseClient = null;
 
-// â”€â”€ QUICK WIN: Show cached data instantly, or skeleton if no cache â”€â”€
+// ── QUICK WIN: Show cached data instantly, or skeleton if no cache ──
 (function renderCachedItems() {
   const cached = localStorage.getItem('grocery_items');
   if (cached) {
@@ -108,7 +108,7 @@ async function flushOfflineQueue() {
     }
   }
   localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
-  if (!offlineQueue.length) { showNotif('âœ… Synced!'); load(); }
+  if (!offlineQueue.length) { showNotif('✅ Synced!'); load(); }
 }
 
 window.addEventListener('online', updateOfflineStatus);
@@ -225,7 +225,7 @@ async function api(url, opts) {
       if (opts.method && opts.method !== 'GET') {
         offlineQueue.push({ url, opts });
         localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
-        showNotif('ðŸ“¡ Saved offline â€” will sync later');
+        showNotif('📡 Saved offline — will sync later');
       }
       return null;
     }
@@ -236,9 +236,9 @@ async function api(url, opts) {
     if (opts.method && opts.method !== 'GET') {
       offlineQueue.push({ url, opts });
       localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
-      showNotif('ðŸ“¡ Saved offline â€” will sync later');
+      showNotif('📡 Saved offline — will sync later');
     } else {
-      showNotif('âš ï¸ Server unreachable');
+      showNotif('⚠️ Server unreachable');
     }
     return null;
   }
@@ -287,13 +287,13 @@ function toggleFamilySwitcher() {
     let html = allFamilies.map(f => {
       const isActive = f.family_id === activeFamilyId;
       return `<button class="family-switch-item${isActive?' active':''}" onclick="switchFamily('${f.family_id}')">
-        <span>ðŸ </span>
+        <span>🏠</span>
         <span>${esc(f.families.name)}</span>
-        ${isActive ? '<span class="check">âœ“</span>' : ''}
+        ${isActive ? '<span class="check">✓</span>' : ''}
       </button>`;
     }).join('');
     html += `<button class="family-switch-item" onclick="drawerAction('add-family')" style="border-top:1px solid var(--border)">
-      <span>ðŸ”‘</span><span>Join Another Family</span>
+      <span>🔑</span><span>Join Another Family</span>
     </button>`;
     dd.innerHTML = html;
   }
@@ -336,31 +336,31 @@ function render() {
   let html = '';
   for (const cat of visibleCats) {
     const catItems = categories[cat].sort((a,b) => b.in_stock - a.in_stock || a.name.localeCompare(b.name));
-    html += `<div class="category-group"><div class="category-title">${catEmoji[cat]||'ðŸ“¦'} ${esc(cat)} (${catItems.length})</div>`;
+    html += `<div class="category-group"><div class="category-title">${catEmoji[cat]||'📦'} ${esc(cat)} (${catItems.length})</div>`;
     for (const it of catItems) {
       const cls = it.in_stock ? '' : ' out';
-      const toggleLabel = it.in_stock ? 'Out' : 'âœ“';
-      const noteHtml = it.note ? `<div class="note">ðŸ“ ${esc(it.note)}</div>` : '';
+      const toggleLabel = it.in_stock ? 'Out' : '✓';
+      const noteHtml = it.note ? `<div class="note">📝 ${esc(it.note)}</div>` : '';
       html += `<div class="item${cls}" data-id="${it.id}">
-        <div class="swipe-bg left">â—€ Out</div>
-        <div class="swipe-bg right">Restock â–¶</div>
+        <div class="swipe-bg left">◀ Out</div>
+        <div class="swipe-bg right">Restock ▶</div>
         <div class="info" onclick="openEdit(${it.id})" style="cursor:pointer"><div class="name">${esc(it.name)}</div>${noteHtml}${it.added_by ? `<div style="font-size:.7rem;color:var(--muted)">Added by ${esc(it.added_by)}</div>` : ''}</div>
         <div class="qty-ctrl">
-          <button onclick="adjustQty(${it.id},-1)">âˆ’</button>
+          <button onclick="adjustQty(${it.id},-1)">−</button>
           <span>${it.quantity} ${esc(it.unit || 'pcs')}</span>
           <button onclick="adjustQty(${it.id},1)">+</button>
         </div>
-        <button class="btn-move-top" onclick="moveToTop(${it.id})">â†‘</button>
+        <button class="btn-move-top" onclick="moveToTop(${it.id})">↑</button>
         <button class="btn-toggle" onclick="toggle(${it.id})">${toggleLabel}</button>
-        <button class="btn-del" onclick="del(${it.id})">âœ•</button>
+        <button class="btn-del" onclick="del(${it.id})">✕</button>
       </div>`;
     }
     html += '</div>';
   }
   document.getElementById('list').innerHTML = html || `<div class="empty-state">
-    <div class="emoji">ðŸ›’</div>
+    <div class="emoji">🛒</div>
     <div class="title">Your list is empty</div>
-    <div class="hint">Search above to add items from the catalog,<br>or use the â˜° menu â†’ Add Item</div>
+    <div class="hint">Search above to add items from the catalog,<br>or use the ☰ menu → Add Item</div>
   </div>`;
   updateShopBadge();
 }
@@ -396,13 +396,13 @@ async function addItem() {
     if (data.merged) {
       const idx = items.findIndex(i => i.id === data.id);
       if (idx >= 0) items[idx] = data; else items.push(data);
-      showNotif(`âœ… "${data.name}" already exists â€” quantity updated to ${data.quantity}`);
+      showNotif(`✅ "${data.name}" already exists — quantity updated to ${data.quantity}`);
     } else {
       items.push(data);
     }
     localStorage.setItem('grocery_items', JSON.stringify(items));
   } else {
-    showNotif(`âš ï¸ Failed to add "${name}" â€” will retry when online`);
+    showNotif(`⚠️ Failed to add "${name}" — will retry when online`);
   }
   render();
 }
@@ -414,12 +414,12 @@ async function toggle(id) {
   const prevState = items[idx].in_stock;
   items[idx] = { ...items[idx], in_stock: !prevState };
 
-  // Patch DOM directly â€” no full render
+  // Patch DOM directly — no full render
   const el = document.querySelector(`.item[data-id="${id}"]`);
   if (el) {
     el.classList.toggle('out', !items[idx].in_stock);
     const btn = el.querySelector('.btn-toggle');
-    if (btn) btn.textContent = items[idx].in_stock ? 'Out' : 'âœ“';
+    if (btn) btn.textContent = items[idx].in_stock ? 'Out' : '✓';
   }
   updateShopBadge();
 
@@ -431,7 +431,7 @@ async function toggle(id) {
       if (el) {
         el.classList.toggle('out', !data.in_stock);
         const btn = el.querySelector('.btn-toggle');
-        if (btn) btn.textContent = data.in_stock ? 'Out' : 'âœ“';
+        if (btn) btn.textContent = data.in_stock ? 'Out' : '✓';
       }
     }
   } else {
@@ -440,9 +440,9 @@ async function toggle(id) {
     if (el) {
       el.classList.toggle('out', !prevState);
       const btn = el.querySelector('.btn-toggle');
-      if (btn) btn.textContent = prevState ? 'Out' : 'âœ“';
+      if (btn) btn.textContent = prevState ? 'Out' : '✓';
     }
-    showNotif('âš ï¸ Failed to update â€” reverted');
+    showNotif('⚠️ Failed to update — reverted');
   }
   updateShopBadge();
 }
@@ -464,7 +464,7 @@ async function changeQty(id, newQty) {
   items[idx] = { ...items[idx], quantity: newQty };
   if (newQty === 0) items[idx].in_stock = false;
 
-  // Patch DOM directly â€” no full render
+  // Patch DOM directly — no full render
   const el = document.querySelector(`.item[data-id="${id}"]`);
   if (el) {
     const qtySpan = el.querySelector('.qty-ctrl span');
@@ -472,7 +472,7 @@ async function changeQty(id, newQty) {
     if (newQty === 0) {
       el.classList.add('out');
       const btn = el.querySelector('.btn-toggle');
-      if (btn) btn.textContent = 'âœ“';
+      if (btn) btn.textContent = '✓';
     }
   }
   updateShopBadge();
@@ -496,7 +496,7 @@ async function changeQty(id, newQty) {
       if (newQty === 0) {
         el.classList.toggle('out', !prevStock);
         const btn = el.querySelector('.btn-toggle');
-        if (btn) btn.textContent = prevStock ? 'Out' : 'âœ“';
+        if (btn) btn.textContent = prevStock ? 'Out' : '✓';
       }
     }
   }
@@ -545,7 +545,7 @@ async function moveToTop(id) {
   if (!item) return;
   const minOrder = Math.min(...items.filter(i => i.category === item.category).map(i => i.sort_order)) - 1;
   const data = await api(`/api/items/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ sort_order: minOrder }) });
-  if (data) { const idx = items.findIndex(i => i.id === id); if (idx >= 0) items[idx] = data; render(); showNotif(`â†‘ "${item.name}" moved to top`); }
+  if (data) { const idx = items.findIndex(i => i.id === id); if (idx >= 0) items[idx] = data; render(); showNotif(`↑ "${item.name}" moved to top`); }
 }
 
 // Edit item
@@ -580,7 +580,7 @@ async function saveEdit() {
     const idx = items.findIndex(i => i.id === editingId);
     if (idx >= 0) items[idx] = data;
     render();
-    showNotif(`âœ… "${name}" updated`);
+    showNotif(`✅ "${name}" updated`);
   }
   editingId = null;
   closeModal('editModal');
@@ -594,14 +594,14 @@ async function bulkAdd() {
   haptic('success');
   const cat = document.getElementById('bulk-cat').value;
   const data = await api('/api/items/bulk', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({items: text, category: cat}) });
-  if (data) { items.push(...data); render(); showNotif(`âœ… Added ${data.length} items`); }
+  if (data) { items.push(...data); render(); showNotif(`✅ Added ${data.length} items`); }
   document.getElementById('bulk-text').value = '';
   closeModal('bulkModal');
 }
 
 // Voice
 function voiceInput() {
-  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) { showNotif('âš ï¸ Voice not supported'); return; }
+  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) { showNotif('⚠️ Voice not supported'); return; }
   const btn = document.querySelector('.hamburger');
   if (recognition) { recognition.stop(); return; }
   haptic('medium');
@@ -611,7 +611,7 @@ function voiceInput() {
   recognition.interimResults = false;
   recognition.lang = 'en-US';
   btn.classList.add('voice-active');
-  showNotif('ðŸŽ¤ Listening...');
+  showNotif('🎤 Listening...');
   recognition.onresult = (e) => {
     const text = e.results[0][0].transcript;
     const match = text.match(/(?:add\s+)?(\d+)?\s*(.+?)(?:\s+to\s+(.+))?$/i);
@@ -621,13 +621,13 @@ function voiceInput() {
       const cat = match[3] ? match[3].trim() : null;
       voicePending = { name, qty, cat };
       document.getElementById('voice-heard').textContent = `"${text}"`;
-      document.getElementById('voice-parsed').innerHTML = `<b>${name}</b> Ã—${qty}${cat ? ` â†’ ${cat}` : ''}`;
+      document.getElementById('voice-parsed').innerHTML = `<b>${name}</b> ×${qty}${cat ? ` → ${cat}` : ''}`;
       document.getElementById('voiceConfirmModal').classList.add('show');
     }
     haptic('success');
   };
   recognition.onend = () => { btn.classList.remove('voice-active'); recognition = null; };
-  recognition.onerror = () => { btn.classList.remove('voice-active'); recognition = null; showNotif('âš ï¸ Voice failed'); };
+  recognition.onerror = () => { btn.classList.remove('voice-active'); recognition = null; showNotif('⚠️ Voice failed'); };
   recognition.start();
 }
 
@@ -717,7 +717,7 @@ function shopSelectAll(checked) {
 function renderShop() {
   const outItems = items.filter(it => !it.in_stock);
   let html = '';
-  if (!outItems.length) { html = '<p style="color:var(--muted);text-align:center;margin-top:30px">All items in stock! ðŸŽ‰</p>'; }
+  if (!outItems.length) { html = '<p style="color:var(--muted);text-align:center;margin-top:30px">All items in stock! 🎉</p>'; }
   // Group by category
   const grouped = {};
   outItems.forEach(it => { const c = it.category || 'Other'; if (!grouped[c]) grouped[c] = []; grouped[c].push(it); });
@@ -729,7 +729,7 @@ function renderShop() {
         <input type="checkbox" data-id="${it.id}">
         <div class="info">
           <div class="name">${esc(it.name)}</div>
-          <div style="font-size:.75rem;color:var(--muted)">${it.note ? esc(it.note) + ' Â· ' : ''}${it.quantity} ${esc(it.unit || 'pcs')}</div>
+          <div style="font-size:.75rem;color:var(--muted)">${it.note ? esc(it.note) + ' · ' : ''}${it.quantity} ${esc(it.unit || 'pcs')}</div>
         </div>
         <input type="number" min="0.1" step="0.1" value="${it.quantity}" data-id="${it.id}" class="shop-qty" style="padding:6px;border:1px solid var(--border);border-radius:6px;font-size:14px;text-align:center;background:var(--bg);color:var(--text)">
       </div>`;
@@ -767,7 +767,7 @@ async function doneShop() {
     }
   });
   if (zeroItems.length) {
-    showNotif(`âš ï¸ ${zeroItems.length} item(s) have 0 quantity â€” fix before restocking`);
+    showNotif(`⚠️ ${zeroItems.length} item(s) have 0 quantity — fix before restocking`);
     if (!ids.length) return;
   }
   haptic('success');
@@ -775,24 +775,24 @@ async function doneShop() {
   items.forEach(it => { if (ids.includes(it.id)) it.in_stock = true; });
   renderShop();
   updateShopBadge();
-  showNotif(`âœ… ${ids.length} item(s) restocked!`);
+  showNotif(`✅ ${ids.length} item(s) restocked!`);
 }
 
-// Share â€” sends actual shopping list text via WhatsApp or native share
+// Share — sends actual shopping list text via WhatsApp or native share
 function shareList() {
   haptic();
   const outItems = items.filter(i => !i.in_stock);
-  let text = 'ðŸ›’ *Shopping List*\n';
+  let text = '🛒 *Shopping List*\n';
   if (outItems.length) {
     const grouped = {};
     outItems.forEach(it => { const c = it.category||'Other'; if(!grouped[c]) grouped[c]=[]; grouped[c].push(it); });
     for (const cat of catOrder) {
       if (!grouped[cat]) continue;
       text += `\n*${catEmoji[cat]||''} ${cat}*\n`;
-      grouped[cat].forEach(it => { text += `â˜ ${it.name} Ã—${it.quantity}\n`; });
+      grouped[cat].forEach(it => { text += `☐ ${it.name} ×${it.quantity}\n`; });
     }
   } else {
-    text += '\nâœ… All items in stock!';
+    text += '\n✅ All items in stock!';
   }
   if (navigator.share) {
     navigator.share({ title: 'Shopping List', text });
@@ -874,29 +874,29 @@ function exportPDF() {
     .cat { color: #999; font-size: .75rem; }
     @media print { body { padding: 0; } }
   </style></head><body>`;
-  html += `<h1>ðŸ›’ Shopping List</h1><p class="date">${new Date().toLocaleDateString('en-IN', {weekday:'long', year:'numeric', month:'long', day:'numeric'})}</p>`;
+  html += `<h1>🛒 Shopping List</h1><p class="date">${new Date().toLocaleDateString('en-IN', {weekday:'long', year:'numeric', month:'long', day:'numeric'})}</p>`;
 
   if (outItems.length) {
-    html += '<h2>âŒ Need to Buy</h2><table>';
+    html += '<h2>❌ Need to Buy</h2><table>';
     const grouped = {};
     outItems.forEach(it => { const c = it.category||'Other'; if(!grouped[c]) grouped[c]=[]; grouped[c].push(it); });
     for (const cat of catOrder) {
       if (!grouped[cat]) continue;
       grouped[cat].sort((a,b) => a.name.localeCompare(b.name)).forEach(it => {
-        html += `<tr><td>â˜</td><td>${it.name} <span class="qty">Ã—${it.quantity}</span> <span class="cat">${it.category}</span></td></tr>`;
+        html += `<tr><td>☐</td><td>${it.name} <span class="qty">×${it.quantity}</span> <span class="cat">${it.category}</span></td></tr>`;
       });
     }
     html += '</table>';
   }
 
   if (inItems.length) {
-    html += '<h2>âœ… In Stock</h2><table>';
+    html += '<h2>✅ In Stock</h2><table>';
     const grouped = {};
     inItems.forEach(it => { const c = it.category||'Other'; if(!grouped[c]) grouped[c]=[]; grouped[c].push(it); });
     for (const cat of catOrder) {
       if (!grouped[cat]) continue;
       grouped[cat].sort((a,b) => a.name.localeCompare(b.name)).forEach(it => {
-        html += `<tr><td>â˜‘</td><td>${it.name} <span class="qty">Ã—${it.quantity}</span> <span class="cat">${it.category}</span></td></tr>`;
+        html += `<tr><td>☑</td><td>${it.name} <span class="qty">×${it.quantity}</span> <span class="cat">${it.category}</span></td></tr>`;
       });
     }
     html += '</table>';
@@ -912,7 +912,7 @@ function exportPDF() {
 // Keyboard - add item on Enter
 document.getElementById('inp-name').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
 
-// â”€â”€ UNIFIED SEARCH + ADD FROM CATALOG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── UNIFIED SEARCH + ADD FROM CATALOG ──────────────────────────────
 let masterSearchTimer = null;
 let lastMasterResults = [];
 
@@ -953,13 +953,13 @@ function renderSuggestions(query) {
   let html = '';
 
   if (lastMasterResults.length > 0) {
-    html += `<div class="sug-section">âž• Add from catalog</div>`;
+    html += `<div class="sug-section">➕ Add from catalog</div>`;
     for (let i = 0; i < lastMasterResults.length; i++) {
       const it = lastMasterResults[i];
       html += `<div class="sug-item">
         <div class="si-info">
           <div class="si-name">${esc(it.name)}</div>
-          <div class="si-cat">${esc(it.category)} Â· ${it.default_quantity} ${esc(it.unit)}</div>
+          <div class="si-cat">${esc(it.category)} · ${it.default_quantity} ${esc(it.unit)}</div>
         </div>
         <button class="si-add" onclick="quickAddByIndex(${i})">+ Add</button>
       </div>`;
@@ -993,7 +993,7 @@ async function quickAddByIndex(idx) {
   const q = document.getElementById('main-search').value.trim();
   renderSuggestions(q);
   render();
-  showNotif(`âœ… Added "${it.name}"`);
+  showNotif(`✅ Added "${it.name}"`);
 
   const data = await api('/api/items', {
     method: 'POST',
@@ -1005,7 +1005,7 @@ async function quickAddByIndex(idx) {
     if (data.merged) {
       const i = items.findIndex(x => x.id === data.id);
       if (i >= 0) items[i] = data;
-      showNotif(`âœ… "${data.name}" qty updated to ${data.quantity}`);
+      showNotif(`✅ "${data.name}" qty updated to ${data.quantity}`);
     } else {
       items.push(data);
     }
@@ -1027,10 +1027,10 @@ async function quickAddCustom() {
     if (data.merged) {
       const i = items.findIndex(x => x.id === data.id);
       if (i >= 0) items[i] = data;
-      showNotif(`âœ… "${data.name}" qty updated to ${data.quantity}`);
+      showNotif(`✅ "${data.name}" qty updated to ${data.quantity}`);
     } else {
       items.push(data);
-      showNotif(`âœ… Added "${name}"`);
+      showNotif(`✅ Added "${name}"`);
     }
     localStorage.setItem('grocery_items', JSON.stringify(items));
     document.getElementById('main-search').value = '';
@@ -1102,7 +1102,7 @@ document.addEventListener('touchmove', e => {
     indicator.classList.add('pulling');
     indicator.style.opacity = progress;
     indicator.style.transform = `translateY(${Math.min(diff * 0.3, 30)}px) scale(${0.8 + progress * 0.2})`;
-    indicator.textContent = diff > 80 ? 'â†“ Release to refresh' : 'â†“ Pull to refresh';
+    indicator.textContent = diff > 80 ? '↓ Release to refresh' : '↓ Pull to refresh';
   }
 });
 document.addEventListener('touchend', e => {
@@ -1113,8 +1113,8 @@ document.addEventListener('touchend', e => {
   indicator.classList.remove('pulling');
   indicator.style.opacity = '0';
   indicator.style.transform = '';
-  indicator.textContent = 'â†“ Pull to refresh';
-  if (diff > 80) { haptic('medium'); load(); showNotif('ðŸ”„ Refreshed'); }
+  indicator.textContent = '↓ Pull to refresh';
+  if (diff > 80) { haptic('medium'); load(); showNotif('🔄 Refreshed'); }
 });
 
 // PWA
@@ -1136,7 +1136,7 @@ function nextOnboardingStep() {
   document.querySelectorAll('.onboarding-step').forEach(s => s.classList.remove('active'));
   document.getElementById('ob-step-' + obStep).classList.add('active');
   document.querySelectorAll('.onboarding-dots .dot').forEach(d => d.classList.toggle('active', parseInt(d.dataset.step) === obStep));
-  if (obStep === 3) document.getElementById('ob-next').textContent = 'Get Started âœ“';
+  if (obStep === 3) document.getElementById('ob-next').textContent = 'Get Started ✓';
 }
 function dismissOnboarding() {
   document.getElementById('onboarding').classList.remove('show');
@@ -1161,7 +1161,7 @@ function dismissOnboarding() {
     .catch(() => load());
 })();
 
-// ── Expose functions to inline onclick handlers ──
+// ?? Expose functions to inline onclick handlers ??
 window.openDrawer = openDrawer;
 window.closeDrawer = closeDrawer;
 window.drawerAction = drawerAction;
