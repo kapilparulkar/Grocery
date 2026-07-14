@@ -291,7 +291,7 @@ Family-scoped endpoints use `X-Family-Id` header for multi-family users.
 | CRUD items | ✅ | Add, edit, toggle, delete |
 | Duplicate detection | ✅ | Merges quantity if item exists |
 | Bulk add | ✅ | Paste newline-separated list |
-| Shopping mode | ✅ | Checklist + bulk restock |
+| Shopping mode | ✅ | Checklist + bulk restock, proper alignment |
 | Categories | ✅ | Filterable tabs |
 | Search + autocomplete | ✅ | Client filter + master catalog suggestions |
 | Master catalog (326 items) | ✅ | Indian grocery focus with aliases |
@@ -303,7 +303,7 @@ Family-scoped endpoints use `X-Family-Id` header for multi-family users.
 | PWA installable | ✅ | Service worker + manifest |
 | Realtime sync | ✅ | Supabase postgres_changes subscription |
 | Swipe gestures | ✅ | Swipe left/right to toggle stock status |
-| Pull-to-refresh | ✅ | Pull down to reload items |
+| Pull-to-refresh | ✅ | Spring-based animation with progress text |
 | Onboarding tutorial | ✅ | 4-step walkthrough for new users |
 | Smart unit detection | ✅ | Auto-detects unit from item name |
 | Quantity controls | ✅ | +/- buttons inline |
@@ -313,6 +313,11 @@ Family-scoped endpoints use `X-Family-Id` header for multi-family users.
 | Smart polling | ✅ | 30s interval, pauses when tab hidden |
 | Item notes | ✅ | Optional note per item (brand, size) |
 | Search clear button | ✅ | ✕ button to clear search input |
+| Optimistic UI | ✅ | Toggle, add, qty change — instant response, no blink |
+| Skeleton loading | ✅ | Shimmer placeholders on first visit (no cache) |
+| DOM patching | ✅ | Toggle/qty update without full re-render |
+| Better empty state | ✅ | Styled card with icon + helpful hints |
+| GPU-accelerated animations | ✅ | `will-change` on items and buttons |
 
 ---
 
@@ -346,6 +351,7 @@ A custom Python MCP server at `mcp/supabase_mcp_server.py` provides direct datab
 - **Family-scoped data** — every item has `family_id`. API resolves active family from memberships + header.
 - **Master catalog grows organically** — new items added by users get inserted into master_items with `popular_score: 1`.
 - **Optimistic caching** — localStorage cache shown immediately, fresh data fetched in background.
+- **DOM patching over full re-render** — toggle and quantity changes patch individual DOM elements instead of rebuilding the entire list with innerHTML. Full render only for structural changes (add, delete, filter).
 - **Single serverless function** — all routes in one `api.js` file (simpler deployment, trade-off: monolithic).
 
 ---
@@ -430,8 +436,8 @@ Sweeteners & Baking | Frozen | Bakery | Household | Personal Care | Baby Care
 - Logout confirmation dialog
 - Item count summary in header ("3 items needed")
 - Search highlighting in suggestions
-- Optimistic UI (update immediately, confirm with server)
-- Skeleton loading placeholders
+- ~~Optimistic UI (update immediately, confirm with server)~~ ✅ Done
+- ~~Skeleton loading placeholders~~ ✅ Done
 
 ### Medium Effort
 - Sort options (name, recently added, quantity)
@@ -440,7 +446,7 @@ Sweeteners & Baking | Frozen | Bakery | Household | Personal Care | Baby Care
 - Last purchased timestamp tracking
 - Export/import list as JSON backup
 - Drag-and-drop reorder
-- Better pull-to-refresh animation (spring-based)
+- ~~Better pull-to-refresh animation (spring-based)~~ ✅ Done
 
 ### Bigger Features
 - Push notifications (family member adds items)
@@ -453,4 +459,4 @@ Sweeteners & Baking | Frozen | Bakery | Household | Personal Care | Baby Care
 
 ---
 
-*Last updated: July 2025*
+*Last updated: July 14, 2026*
