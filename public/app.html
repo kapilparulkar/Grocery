@@ -208,6 +208,31 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 .onboarding-btn { padding: 14px 32px; background: var(--green); color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; min-width: 200px; }
 .onboarding-btn:active { transform: scale(.97); }
 .onboarding-skip { background: none; border: none; color: var(--muted); font-size: .85rem; cursor: pointer; margin-top: 12px; padding: 8px; }
+
+/* ── SKELETON LOADING ── */
+@keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+.skeleton { background: linear-gradient(90deg, var(--border) 25%, var(--bg) 50%, var(--border) 75%); background-size: 400px 100%; animation: shimmer 1.2s ease-in-out infinite; border-radius: 8px; }
+.skeleton-item { display: flex; align-items: center; background: var(--card); padding: 12px; border-radius: 8px; margin-bottom: 6px; gap: 12px; }
+.skeleton-item .sk-name { height: 14px; width: 60%; }
+.skeleton-item .sk-qty { height: 14px; width: 40px; margin-left: auto; }
+.skeleton-cat { height: 12px; width: 100px; margin-bottom: 8px; }
+
+/* ── OPTIMISTIC UI ── */
+.item.optimistic { opacity: .7; pointer-events: none; }
+.item.optimistic::after { content: ''; position: absolute; top: 50%; right: 12px; width: 14px; height: 14px; border: 2px solid var(--green); border-top-color: transparent; border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── EMPTY STATE ── */
+.empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+.empty-state .emoji { font-size: 3rem; margin-bottom: 12px; }
+.empty-state .title { font-size: 1rem; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+.empty-state .hint { font-size: .85rem; line-height: 1.5; }
+
+/* ── SMOOTHER ANIMATIONS ── */
+.item { will-change: transform, opacity; }
+.item button { will-change: transform; }
+.pull-indicator { transition: opacity .2s, transform .2s; }
+.pull-indicator.pulling { opacity: 1; transform: translateY(4px); }
 </style>
 </head>
 <body>
@@ -325,7 +350,7 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
     <button onclick="shopSelectAll(false)">☐ Deselect All</button>
   </div>
   <div id="shop-list"></div>
-  <button class="shopping-done" onclick="doneShop()">✅ Done Shopping - Restock Checked</button>
+  <button class="shopping-done" onclick="doneShop()">✅ Done Shopping</button>
 </div>
 
 <!-- VOICE CONFIRM MODAL -->
@@ -464,7 +489,7 @@ let activeFamilyId = localStorage.getItem('active_family_id') || null;
 let allFamilies = [];
 let supabaseClient = null;
 
-// ── QUICK WIN: Show cached data instantly ──────────────────────────
+// ── QUICK WIN: Show cached data instantly, or skeleton if no cache ──
 (function renderCachedItems() {
   const cached = localStorage.getItem('grocery_items');
   if (cached) {
@@ -476,6 +501,22 @@ let supabaseClient = null;
         setTimeout(render, 0);
       }
     } catch(e) { /* ignore corrupt cache */ }
+  } else {
+    // Show skeleton placeholders while waiting for first load
+    const showSkeleton = () => {
+      const listEl = document.getElementById('list');
+      if (!listEl) return;
+      let sk = '<div class="skeleton skeleton-cat"></div>';
+      for (let i = 0; i < 6; i++) {
+        sk += `<div class="skeleton-item"><div class="skeleton sk-name"></div><div class="skeleton sk-qty"></div></div>`;
+      }
+      listEl.innerHTML = sk;
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', showSkeleton);
+    } else {
+      setTimeout(showSkeleton, 0);
+    }
   }
 })();
 
@@ -790,7 +831,11 @@ function render() {
     }
     html += '</div>';
   }
-  document.getElementById('list').innerHTML = html || '<p style="text-align:center;color:var(--muted);margin-top:40px">No items yet. Add something above!</p>';
+  document.getElementById('list').innerHTML = html || `<div class="empty-state">
+    <div class="emoji">🛒</div>
+    <div class="title">Your list is empty</div>
+    <div class="hint">Search above to add items from the catalog,<br>or use the ☰ menu → Add Item</div>
+  </div>`;
   updateShopBadge();
 }
 
@@ -803,7 +848,24 @@ async function addItem() {
   const cat = document.getElementById('inp-cat').value;
   const note = document.getElementById('inp-note').value.trim();
   const unit = document.getElementById('inp-unit').value;
+
+  // Optimistic UI: show item immediately with temp ID
+  const tempId = -Date.now();
+  const optimisticItem = { id: tempId, name, quantity: qty, category: cat, note: note || null, unit, in_stock: true, sort_order: 9999, added_by: 'You', _optimistic: true };
+  items.push(optimisticItem);
+  render();
+
+  // Clear form and close modal immediately (feels instant)
+  document.getElementById('inp-name').value = '';
+  document.getElementById('inp-qty').value = '1';
+  document.getElementById('inp-note').value = '';
+  document.getElementById('inp-unit').value = 'pcs';
+  closeModal('addModal');
+
+  // Now make the actual API call
   const data = await api('/api/items', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name, quantity: qty, category: cat, note: note || undefined, unit}) });
+  // Remove optimistic item
+  items = items.filter(i => i.id !== tempId);
   if (data) {
     if (data.merged) {
       const idx = items.findIndex(i => i.id === data.id);
@@ -812,30 +874,53 @@ async function addItem() {
     } else {
       items.push(data);
     }
-    render();
+    localStorage.setItem('grocery_items', JSON.stringify(items));
+  } else {
+    showNotif(`⚠️ Failed to add "${name}" — will retry when online`);
   }
-  document.getElementById('inp-name').value = '';
-  document.getElementById('inp-qty').value = '1';
-  document.getElementById('inp-note').value = '';
-  document.getElementById('inp-unit').value = 'pcs';
-  closeModal('addModal');
+  render();
 }
 
 async function toggle(id) {
   haptic('medium');
-  const el = document.querySelector(`.item[data-id="${id}"]`);
-  if (el) el.classList.add('popping');
+  // Optimistic UI: toggle immediately in local state
+  const idx = items.findIndex(i => i.id === id);
+  if (idx >= 0) {
+    items[idx] = { ...items[idx], in_stock: !items[idx].in_stock };
+    render();
+  }
   const data = await api(`/api/items/${id}/toggle`, { method: 'POST' });
-  if (data) { const idx = items.findIndex(i => i.id === id); if (idx >= 0) items[idx] = data; setTimeout(render, 200); }
+  if (data) {
+    items[idx] = data;
+  } else if (idx >= 0) {
+    // Revert on failure
+    items[idx] = { ...items[idx], in_stock: !items[idx].in_stock };
+  }
+  render();
+  updateShopBadge();
 }
 
 async function changeQty(id, newQty) {
   if (newQty < 0) return;
   haptic();
+  // Optimistic UI: update quantity immediately
+  const idx = items.findIndex(i => i.id === id);
+  const prevQty = idx >= 0 ? items[idx].quantity : null;
+  if (idx >= 0) {
+    items[idx] = { ...items[idx], quantity: newQty };
+    if (newQty === 0) items[idx].in_stock = false;
+    render();
+  }
   const updates = { quantity: newQty };
   if (newQty === 0) updates.in_stock = false;
   const data = await api(`/api/items/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates) });
-  if (data) { const idx = items.findIndex(i => i.id === id); if (idx >= 0) items[idx] = data; render(); }
+  if (data) {
+    if (idx >= 0) items[idx] = data;
+  } else if (idx >= 0 && prevQty !== null) {
+    // Revert on failure
+    items[idx] = { ...items[idx], quantity: prevQty };
+  }
+  render();
 }
 
 let pendingDeleteId = null;
@@ -1102,6 +1187,7 @@ async function doneShop() {
   await api('/api/items/bulk-restock', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ids}) });
   items.forEach(it => { if (ids.includes(it.id)) it.in_stock = true; });
   renderShop();
+  updateShopBadge();
   showNotif(`✅ ${ids.length} item(s) restocked!`);
 }
 
@@ -1312,11 +1398,22 @@ async function quickAddByIndex(idx) {
   const it = lastMasterResults[idx];
   if (!it) return;
   haptic('success');
+
+  // Optimistic: add to list and remove from suggestions immediately
+  const tempId = -Date.now();
+  items.push({ id: tempId, name: it.name, category: it.category, quantity: it.default_quantity || 1, unit: it.unit || 'pcs', in_stock: true, sort_order: 9999, added_by: 'You', _optimistic: true });
+  lastMasterResults = lastMasterResults.filter(x => x.name !== it.name);
+  const q = document.getElementById('main-search').value.trim();
+  renderSuggestions(q);
+  render();
+  showNotif(`✅ Added "${it.name}"`);
+
   const data = await api('/api/items', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ name: it.name, category: it.category, quantity: it.default_quantity || 1, unit: it.unit || 'pcs' })
   });
+  items = items.filter(i => i.id !== tempId);
   if (data) {
     if (data.merged) {
       const i = items.findIndex(x => x.id === data.id);
@@ -1324,12 +1421,8 @@ async function quickAddByIndex(idx) {
       showNotif(`✅ "${data.name}" qty updated to ${data.quantity}`);
     } else {
       items.push(data);
-      showNotif(`✅ Added "${it.name}"`);
     }
     localStorage.setItem('grocery_items', JSON.stringify(items));
-    lastMasterResults = lastMasterResults.filter(x => x.name !== it.name);
-    const q = document.getElementById('main-search').value.trim();
-    renderSuggestions(q);
     render();
   }
 }
@@ -1406,7 +1499,7 @@ document.addEventListener('touchmove', e => {
   });
 }, { passive: true });
 
-// Pull-to-refresh
+// Pull-to-refresh (spring-based feel)
 let pullStartY = 0, isPulling = false;
 document.addEventListener('touchstart', e => {
   if (window.scrollY === 0 && !e.target.closest('.item') && !e.target.closest('.modal')) {
@@ -1416,13 +1509,24 @@ document.addEventListener('touchstart', e => {
 document.addEventListener('touchmove', e => {
   if (!isPulling) return;
   const diff = e.touches[0].clientY - pullStartY;
-  if (diff > 60) document.getElementById('pull-indicator').classList.add('visible');
+  const indicator = document.getElementById('pull-indicator');
+  if (diff > 20) {
+    const progress = Math.min(diff / 100, 1);
+    indicator.classList.add('pulling');
+    indicator.style.opacity = progress;
+    indicator.style.transform = `translateY(${Math.min(diff * 0.3, 30)}px) scale(${0.8 + progress * 0.2})`;
+    indicator.textContent = diff > 80 ? '↓ Release to refresh' : '↓ Pull to refresh';
+  }
 });
 document.addEventListener('touchend', e => {
   if (!isPulling) return;
   const diff = e.changedTouches[0].clientY - pullStartY;
   isPulling = false;
-  document.getElementById('pull-indicator').classList.remove('visible');
+  const indicator = document.getElementById('pull-indicator');
+  indicator.classList.remove('pulling');
+  indicator.style.opacity = '0';
+  indicator.style.transform = '';
+  indicator.textContent = '↓ Pull to refresh';
   if (diff > 80) { haptic('medium'); load(); showNotif('🔄 Refreshed'); }
 });
 
