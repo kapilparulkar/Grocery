@@ -270,6 +270,31 @@ public/
 
 ---
 
+## Phase 2 Batching Strategy
+
+Phase 2 is split into batches to manage complexity and avoid encoding issues. Only Kiro file tools (`fs_write`, `str_replace`) are used — no PowerShell file operations.
+
+**Batch 1 — Foundations** (other modules depend on these):
+- `config.js` — constants (catOrder, catEmoji, Supabase URL/key)
+- `state.js` — shared mutable state object
+- `utils.js` — esc, haptic, showNotif, showToast, hideToast
+- `api.js` — authHeaders, api(), offline queue, updateOfflineStatus, flushOfflineQueue
+
+**Batch 2 — Core Features:**
+- `render.js` — render(), updateShopBadge(), skeleton loading
+- `actions.js` — addItem, toggle, adjustQty, changeQty, del, confirmDel, undoLastDelete, moveToTop
+
+**Batch 3 — Remaining Modules:**
+- `edit.js`, `search.js`, `voice.js`, `bulk.js`, `shop.js`, `drawer.js`, `family.js`, `realtime.js`, `gestures.js`, `share.js`, `theme.js`, `onboarding.js`
+
+**Batch 4 — Finalize:**
+- Slim `main.js` to imports + init + window exports
+- Update service worker cache
+
+Each batch = test the app end-to-end before proceeding to the next.
+
+---
+
 ## Migration Rules
 
 1. **One task = one working commit.** The app must function after each task.
