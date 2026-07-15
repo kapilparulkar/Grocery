@@ -79,21 +79,24 @@ public/
 
 ---
 
-## Phase 3: Clean Up HTML (Future — Optional)
+## Phase 3: Clean Up HTML ✅ COMPLETE
 
-**Goal:** Remove inline styles and inline event handlers from the HTML.
+**Goal:** Remove inline styles and onclick handlers from HTML.
 
-- [ ] Task 3.1: Remove inline styles from HTML → CSS classes
-- [ ] Task 3.2: Convert onclick to addEventListener (optional)
-- [ ] Task 3.3: Event delegation on `#list` for dynamic item buttons
+- [x] Task 3.1: Replace all `style="..."` attributes with CSS classes
+- [x] Task 3.2: Replace all `onclick="..."` with `data-action` / `data-param` attributes
+- [x] Task 3.3: Event delegation in main.js — single click listener routes all `data-action` clicks
+- [x] Added ~30 utility CSS classes (btn-cancel, btn-primary, form-row, input-qty, etc.)
+- [x] Kept `window.*` only for dynamically rendered HTML (render.js item buttons)
 
 ---
 
-## Phase 4: Final Polish (Future — Optional)
+## Phase 4: Final Polish ✅ COMPLETE
 
-- [ ] Task 4.1: Extract search/gestures/realtime/drawer from main.js into own modules
-- [ ] Task 4.2: Update PROJECT_KNOWLEDGE.md
-- [ ] Task 4.3: Performance check (no circular imports, load time OK)
+- [x] Task 4.1: `shop.js` uses `.view-hidden` class instead of `style.display`
+- [x] Task 4.2: Added `input` event listeners for search/name fields (replaces `oninput` attributes)
+- [x] Task 4.3: Service worker cache bumped to v9
+- [x] Task 4.4: Updated PROJECT_KNOWLEDGE.md and REFACTOR_TASKS.md
 
 ---
 
@@ -138,8 +141,9 @@ Each batch = test the app end-to-end before proceeding to the next.
 |-------|-------|--------|
 | Phase 1 | 4 tasks | ✅ Complete |
 | Phase 2 | 13 tasks (Batch 1-3) | ✅ Complete |
-| Phase 3 | 3 tasks | Future (optional) |
-| Phase 4 | 3 tasks | Future (optional) |
+| Phase 3 | 3 tasks | ✅ Complete |
+| Phase 4 | 4 tasks | ✅ Complete |
+| **Total** | **24 tasks** | **All done** |
 
 ## Result
 

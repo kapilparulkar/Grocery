@@ -13,44 +13,44 @@
 </head>
 <body>
 <header>
-  <button class="hamburger" onclick="openDrawer()">☰</button>
-  <div class="family-switcher" onclick="toggleFamilySwitcher()">
+  <button class="hamburger" data-action="openDrawer">☰</button>
+  <div class="family-switcher" data-action="toggleFamilySwitcher">
     <span id="active-family-name">🛒 Grocery List</span>
-    <span id="family-caret" style="font-size:.7rem;margin-left:4px">▾</span>
+    <span id="family-caret" class="family-caret">▾</span>
   </div>
-  <div style="width:36px"></div>
+  <div class="header-spacer"></div>
 </header>
 <div class="family-switcher-dropdown" id="familySwitcherDropdown"></div>
 
 <!-- DRAWER -->
-<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer-overlay" id="drawerOverlay" data-action="closeDrawer"></div>
 <div class="drawer" id="drawer">
   <div class="drawer-header">
-    <span style="font-size:1.5rem">🛒</span>
+    <span class="drawer-logo">🛒</span>
     <h2>Grocery List</h2>
-    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+    <button class="drawer-close" data-action="closeDrawer">✕</button>
   </div>
   <div class="drawer-section">
-    <button class="drawer-item" id="menu-home" onclick="drawerAction('home')"><span class="icon">🏠</span>Home</button>
-    <button class="drawer-item" id="menu-shop" onclick="drawerAction('shop')"><span class="icon">🛖</span>Shopping Mode</button>
+    <button class="drawer-item" id="menu-home" data-action="drawerAction" data-param="home"><span class="icon">🏠</span>Home</button>
+    <button class="drawer-item" id="menu-shop" data-action="drawerAction" data-param="shop"><span class="icon">🛖</span>Shopping Mode</button>
   </div>
   <div class="drawer-section">
-    <button class="drawer-item" onclick="drawerAction('add')"><span class="icon">➕</span>Add Item</button>
-    <button class="drawer-item" onclick="drawerAction('voice')"><span class="icon">🎤</span>Voice Input</button>
-    <button class="drawer-item" onclick="drawerAction('bulk')"><span class="icon">📝</span>Bulk Add</button>
+    <button class="drawer-item" data-action="drawerAction" data-param="add"><span class="icon">➕</span>Add Item</button>
+    <button class="drawer-item" data-action="drawerAction" data-param="voice"><span class="icon">🎤</span>Voice Input</button>
+    <button class="drawer-item" data-action="drawerAction" data-param="bulk"><span class="icon">📝</span>Bulk Add</button>
   </div>
   <div class="drawer-section">
-    <button class="drawer-item" id="menu-delete" onclick="drawerAction('delete')"><span class="icon">🗑️</span>Delete Mode<span class="drawer-toggle" id="deleteToggle"></span></button>
-    <button class="drawer-item" onclick="drawerAction('pdf')"><span class="icon">🖨️</span>Export PDF</button>
-    <button class="drawer-item" onclick="drawerAction('share')"><span class="icon">🔗</span>Share List</button>
+    <button class="drawer-item" id="menu-delete" data-action="drawerAction" data-param="delete"><span class="icon">🗑️</span>Delete Mode<span class="drawer-toggle" id="deleteToggle"></span></button>
+    <button class="drawer-item" data-action="drawerAction" data-param="pdf"><span class="icon">🖨️</span>Export PDF</button>
+    <button class="drawer-item" data-action="drawerAction" data-param="share"><span class="icon">🔗</span>Share List</button>
   </div>
   <div class="drawer-section">
-    <button class="drawer-item" onclick="drawerAction('theme')"><span class="icon">🌓</span>Dark Mode<span class="drawer-toggle" id="themeToggle"></span></button>
+    <button class="drawer-item" data-action="drawerAction" data-param="theme"><span class="icon">🌓</span>Dark Mode<span class="drawer-toggle" id="themeToggle"></span></button>
   </div>
   <div class="drawer-section">
-    <button class="drawer-item" onclick="drawerAction('invite')"><span class="icon">🔗</span>Invite Family</button>
-    <button class="drawer-item" onclick="drawerAction('about')"><span class="icon">ℹ️</span>About</button>
-    <button class="drawer-item" style="color:var(--red)" onclick="drawerAction('logout')"><span class="icon">🚪</span>Logout</button>
+    <button class="drawer-item" data-action="drawerAction" data-param="invite"><span class="icon">🔗</span>Invite Family</button>
+    <button class="drawer-item" data-action="drawerAction" data-param="about"><span class="icon">ℹ️</span>About</button>
+    <button class="drawer-item drawer-item-logout" data-action="drawerAction" data-param="logout"><span class="icon">🚪</span>Logout</button>
   </div>
 </div>
 
@@ -97,49 +97,49 @@
     <div class="dot" data-step="2"></div>
     <div class="dot" data-step="3"></div>
   </div>
-  <button class="onboarding-btn" id="ob-next" onclick="nextOnboardingStep()">Next →</button>
-  <button class="onboarding-skip" onclick="dismissOnboarding()">Skip tutorial</button>
+  <button class="onboarding-btn" id="ob-next" data-action="nextOnboardingStep">Next →</button>
+  <button class="onboarding-skip" data-action="dismissOnboarding">Skip tutorial</button>
 </div>
 
 <div class="page-tabs">
-  <button class="page-tab active" id="tab-btn-home" onclick="switchView('home')">📋 List</button>
-  <button class="page-tab" id="tab-btn-shop" onclick="switchView('shop')">🛖 Shop <span id="shop-badge"></span></button>
+  <button class="page-tab active" id="tab-btn-home" data-action="switchView" data-param="home">📋 List</button>
+  <button class="page-tab" id="tab-btn-shop" data-action="switchView" data-param="shop">🛖 Shop <span id="shop-badge"></span></button>
 </div>
 
 <!-- HOME VIEW -->
 <div id="view-home">
   <div class="pull-indicator" id="pull-indicator">↓ Pull to refresh</div>
-  <div style="position:relative;margin-bottom:10px">
-    <input class="search" id="main-search" placeholder="Search or add items..." oninput="onSearchInput(this.value)" style="margin-bottom:0">
-    <button class="search-clear" id="search-clear" onclick="clearSearch()">✕</button>
+  <div class="search-wrapper">
+    <input class="search" id="main-search" placeholder="Search or add items...">
+    <button class="search-clear" id="search-clear" data-action="clearSearch">✕</button>
   </div>
-  <div id="search-suggestions" style="display:none"></div>
+  <div id="search-suggestions" class="view-hidden"></div>
   <div class="cat-tabs" id="cat-tabs"></div>
   <div id="list"></div>
 </div>
 
 <!-- SHOP VIEW -->
-<div id="view-shop" style="display:none">
-  <p style="color:var(--muted);font-size:.85rem;margin-bottom:10px">Check off items as you shop. Hit "Done" to restock.</p>
+<div id="view-shop" class="view-hidden">
+  <p class="shop-hint">Check off items as you shop. Hit "Done" to restock.</p>
   <div class="shop-controls">
-    <button onclick="shopSelectAll(true)">☑ Select All</button>
-    <button onclick="shopSelectAll(false)">☐ Deselect All</button>
+    <button data-action="shopSelectAll" data-param="true">☑ Select All</button>
+    <button data-action="shopSelectAll" data-param="false">☐ Deselect All</button>
   </div>
   <div id="shop-list"></div>
-  <button class="shopping-done" onclick="doneShop()">✅ Done Shopping</button>
+  <button class="shopping-done" data-action="doneShop">✅ Done Shopping</button>
 </div>
 
 <!-- VOICE CONFIRM MODAL -->
 <div class="modal" id="voiceConfirmModal">
   <div class="modal-content">
     <h3>🎤 Voice Input</h3>
-    <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">I heard:</p>
-    <div id="voice-heard" style="font-size:1.1rem;font-weight:600;margin-bottom:12px;color:var(--green)"></div>
-    <p style="font-size:.8rem;color:var(--muted);margin-bottom:4px">Adding as:</p>
-    <div id="voice-parsed" style="font-size:.9rem;margin-bottom:12px"></div>
+    <p class="modal-subtitle">I heard:</p>
+    <div id="voice-heard" class="voice-heard"></div>
+    <p class="voice-label">Adding as:</p>
+    <div id="voice-parsed" class="voice-parsed"></div>
     <div class="btns">
-      <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('voiceConfirmModal')">Cancel</button>
-      <button type="button" style="background:var(--green);color:#fff" onclick="confirmVoiceAdd()">Add ✓</button>
+      <button type="button" class="btn-cancel" data-action="closeModal" data-param="voiceConfirmModal">Cancel</button>
+      <button type="button" class="btn-primary" data-action="confirmVoiceAdd">Add ✓</button>
     </div>
   </div>
 </div>
@@ -148,11 +148,11 @@
 <div class="modal" id="aboutModal">
   <div class="modal-content">
     <h3>ℹ️ About</h3>
-    <p style="margin:10px 0;font-size:.9rem;color:var(--muted)">Family Grocery List App</p>
-    <p style="font-size:.85rem;margin-bottom:6px"><b>Version:</b> 2.0</p>
-    <p style="font-size:.85rem;margin-bottom:6px"><b>Features:</b> Real-time sync, offline support, voice input, PDF export</p>
-    <p style="font-size:.85rem;margin-bottom:16px"><b>Hosting:</b> Netlify + Supabase</p>
-    <div class="btns"><button style="background:var(--green);color:#fff" onclick="closeModal('aboutModal')">Close</button></div>
+    <p class="modal-about-desc">Family Grocery List App</p>
+    <p class="modal-text-sm"><b>Version:</b> 2.0</p>
+    <p class="modal-text-sm"><b>Features:</b> Real-time sync, offline support, voice input, PDF export</p>
+    <p class="modal-text-last"><b>Hosting:</b> Netlify + Supabase</p>
+    <div class="btns"><button class="btn-primary" data-action="closeModal" data-param="aboutModal">Close</button></div>
   </div>
 </div>
 
@@ -161,49 +161,51 @@
   <div class="modal-content">
     <h3>➕ Add Item</h3>
     <div class="autocomplete">
-      <input id="inp-name" placeholder="Item name..." autocomplete="off" oninput="onNameInput()">
+      <input id="inp-name" placeholder="Item name..." autocomplete="off">
       <div class="autocomplete-list" id="ac-list"></div>
     </div>
     <input id="inp-note" placeholder="Note (optional, e.g. Brand: Aashirvaad)" autocomplete="off">
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input id="inp-qty" type="number" min="0.1" step="0.1" value="1" placeholder="Qty" style="width:70px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg);color:var(--text)">
-      <select id="inp-unit" style="width:80px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg);color:var(--text)">
+    <div class="form-row">
+      <input id="inp-qty" type="number" min="0.1" step="0.1" value="1" placeholder="Qty" class="input-qty">
+      <select id="inp-unit" class="input-unit">
         <option value="pcs">pcs</option><option value="kg">kg</option><option value="g">g</option><option value="L">L</option><option value="ml">ml</option><option value="packet">packet</option><option value="dozen">dozen</option><option value="bundle">bundle</option>
       </select>
-      <select id="inp-cat" style="flex:1">
+      <select id="inp-cat" class="input-cat">
         <option>Produce</option><option>Dairy</option><option>Meat</option><option>Bakery</option><option>Frozen</option><option>Beverages</option><option>Snacks</option><option>Household</option><option>Personal Care</option><option selected>Other</option>
       </select>
     </div>
     <div class="btns">
-      <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('addModal')">Cancel</button>
-      <button type="button" style="background:var(--green);color:#fff" onclick="addItem()">Add</button>
+      <button type="button" class="btn-cancel" data-action="closeModal" data-param="addModal">Cancel</button>
+      <button type="button" class="btn-primary" data-action="addItem">Add</button>
     </div>
   </div>
 </div>
+
+<!-- BULK MODAL -->
 <div class="modal" id="bulkModal">
   <div class="modal-content">
     <h3>Bulk Add Items</h3>
-    <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">One item per line</p>
+    <p class="modal-subtitle">One item per line</p>
     <textarea id="bulk-text" placeholder="Milk&#10;Eggs&#10;Bread&#10;Butter"></textarea>
     <select id="bulk-cat">
       <option>Produce</option><option>Dairy</option><option>Meat</option><option>Bakery</option><option>Frozen</option><option>Beverages</option><option>Snacks</option><option>Household</option><option>Personal Care</option><option selected>Other</option>
     </select>
     <div class="btns">
-      <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('bulkModal')">Cancel</button>
-      <button type="button" style="background:var(--green);color:#fff" onclick="bulkAdd()">Add All</button>
+      <button type="button" class="btn-cancel" data-action="closeModal" data-param="bulkModal">Cancel</button>
+      <button type="button" class="btn-primary" data-action="bulkAdd">Add All</button>
     </div>
   </div>
 </div>
 
 <!-- INVITE MODAL -->
 <div class="modal" id="inviteModal">
-  <div class="modal-content" style="text-align:center">
+  <div class="modal-content modal-center">
     <h3>🔗 Invite Family Members</h3>
-    <p style="font-size:.85rem;color:var(--muted);margin:8px 0">Share this code with your family</p>
-    <div id="modal-invite-code" style="font-size:2rem;font-weight:700;letter-spacing:6px;color:var(--green);border:2px dashed var(--green);border-radius:12px;padding:16px;margin:12px 0"></div>
+    <p class="modal-invite-hint">Share this code with your family</p>
+    <div id="modal-invite-code" class="invite-code-box"></div>
     <div class="btns">
-      <button style="background:var(--green);color:#fff" onclick="navigator.clipboard.writeText(document.getElementById('modal-invite-code').textContent);showNotif('Code copied!')">Copy</button>
-      <button style="background:var(--muted);color:#fff" onclick="closeModal('inviteModal')">Close</button>
+      <button class="btn-primary" data-action="copyInviteCode">Copy</button>
+      <button class="btn-cancel" data-action="closeModal" data-param="inviteModal">Close</button>
     </div>
   </div>
 </div>
@@ -214,8 +216,8 @@
     <h3>🗑️ Delete Item?</h3>
     <div class="item-name" id="confirm-del-name"></div>
     <div class="btns">
-      <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('confirmDeleteModal')">Cancel</button>
-      <button type="button" style="background:var(--red);color:#fff" onclick="confirmDel()">Delete</button>
+      <button type="button" class="btn-cancel" data-action="closeModal" data-param="confirmDeleteModal">Cancel</button>
+      <button type="button" class="btn-danger" data-action="confirmDel">Delete</button>
     </div>
   </div>
 </div>
@@ -226,18 +228,18 @@
     <h3>✏️ Edit Item</h3>
     <input id="edit-name" placeholder="Item name..." autocomplete="off">
     <input id="edit-note" placeholder="Note (optional)" autocomplete="off">
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input id="edit-qty" type="number" min="0.1" step="0.1" value="1" placeholder="Qty" style="width:70px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg);color:var(--text)">
-      <select id="edit-unit" style="width:80px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:var(--bg);color:var(--text)">
+    <div class="form-row">
+      <input id="edit-qty" type="number" min="0.1" step="0.1" value="1" placeholder="Qty" class="input-qty">
+      <select id="edit-unit" class="input-unit">
         <option value="pcs">pcs</option><option value="kg">kg</option><option value="g">g</option><option value="L">L</option><option value="ml">ml</option><option value="packet">packet</option><option value="dozen">dozen</option><option value="bundle">bundle</option>
       </select>
-      <select id="edit-cat" style="flex:1">
+      <select id="edit-cat" class="input-cat">
         <option>Produce</option><option>Dairy</option><option>Meat</option><option>Bakery</option><option>Frozen</option><option>Beverages</option><option>Snacks</option><option>Household</option><option>Personal Care</option><option>Other</option>
       </select>
     </div>
     <div class="btns">
-      <button type="button" style="background:var(--muted);color:#fff" onclick="closeModal('editModal')">Cancel</button>
-      <button type="button" style="background:var(--green);color:#fff" onclick="saveEdit()">Save</button>
+      <button type="button" class="btn-cancel" data-action="closeModal" data-param="editModal">Cancel</button>
+      <button type="button" class="btn-primary" data-action="saveEdit">Save</button>
     </div>
   </div>
 </div>
@@ -245,7 +247,7 @@
 <!-- TOAST (undo) -->
 <div class="toast" id="toast">
   <span id="toast-msg"></span>
-  <button onclick="undoLastDelete()">Undo</button>
+  <button data-action="undoLastDelete">Undo</button>
 </div>
 
 <script type="module" src="/js/main.js"></script>

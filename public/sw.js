@@ -1,4 +1,4 @@
-const CACHE = 'grocery-v8';
+const CACHE = 'grocery-v9';
 const ASSETS = [
   '/',
   '/manifest.json',

@@ -361,6 +361,8 @@ A custom Python MCP server at `mcp/supabase_mcp_server.py` provides direct datab
 
 - **No framework/bundler** — uses native ES modules (`<script type="module">`) with no build step. 14 focused JS files loaded via HTTP/2 multiplexing.
 - **Modular architecture** — split from a 1417-line monolith into 14 files. Each module imports only what it needs. Shared state via `state.js` object.
+- **Event delegation** — HTML uses `data-action` attributes instead of inline `onclick`. A single click listener in `main.js` routes actions. Only dynamically rendered HTML (item cards) still uses `window.*` for onclick.
+- **No inline styles** — all styling via CSS classes. `app.html` is pure structure.
 - **Supabase service key backend-only** — admin operations use service key server-side. Anon key is safe for client.
 - **Default Indian grocery items** — seeded on family creation from master_items catalog.
 - **Invite codes** — 6-char uppercase, easy to share verbally.
@@ -433,15 +435,15 @@ Sweeteners & Baking | Frozen | Bakery | Household | Personal Care | Baby Care
 ## Known Limitations
 
 1. ~~**Monolithic app.html**~~ ✅ Resolved — split into 14 ES modules
-2. **No tests** — no test framework or coverage
-3. **No CI/CD pipeline** — relies on Netlify auto-deploy
-4. **No rate limiting** — beyond Netlify's built-in limits
-5. **No drag-to-reorder** — `sort_order` exists but no drag UI
-6. **Category mismatch** — app uses 10 categories, master_items uses 18
-7. **Shopping mode loses progress on refresh** — checked state is DOM-only
-8. **No token refresh** — tokens expire after 1h without auto-renewal
-9. **verify.js is redundant** — token verification already done in api.js
-10. **Inline onclick handlers** — still use `window.*` exports (optional Phase 3 cleanup)
+2. ~~**Inline styles and onclick handlers**~~ ✅ Resolved — CSS classes + event delegation
+3. **No tests** — no test framework or coverage
+4. **No CI/CD pipeline** — relies on Netlify auto-deploy
+5. **No rate limiting** — beyond Netlify's built-in limits
+6. **No drag-to-reorder** — `sort_order` exists but no drag UI
+7. **Category mismatch** — app uses 10 categories, master_items uses 18
+8. **Shopping mode loses progress on refresh** — checked state is DOM-only
+9. **No token refresh** — tokens expire after 1h without auto-renewal
+10. **verify.js is redundant** — token verification already done in api.js
 
 ---
 
@@ -476,4 +478,4 @@ Sweeteners & Baking | Frozen | Bakery | Household | Personal Care | Baby Care
 
 ---
 
-*Last updated: July 14, 2026 — Refactoring complete (Phase 1-3)*
+*Last updated: July 14, 2026 — Refactoring complete (all 4 phases)*

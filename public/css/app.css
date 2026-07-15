@@ -226,3 +226,31 @@ h1 { font-size: 1.4rem; text-align: center; flex: 1; }
 .empty-state .emoji { font-size: 3rem; margin-bottom: 12px; }
 .empty-state .title { font-size: 1rem; font-weight: 600; margin-bottom: 6px; color: var(--text); }
 .empty-state .hint { font-size: .85rem; line-height: 1.5; }
+
+/* ── Phase 3: Utility classes replacing inline styles ── */
+.family-caret { font-size: .7rem; margin-left: 4px; }
+.header-spacer { width: 36px; }
+.drawer-logo { font-size: 1.5rem; }
+.drawer-item-logout { color: var(--red); }
+.search-wrapper { position: relative; margin-bottom: 10px; }
+.search-wrapper .search { margin-bottom: 0; }
+.view-hidden { display: none; }
+.shop-hint { color: var(--muted); font-size: .85rem; margin-bottom: 10px; }
+.modal-subtitle { font-size: .8rem; color: var(--muted); margin-bottom: 8px; }
+.modal-text { font-size: .9rem; color: var(--muted); }
+.modal-text-sm { font-size: .85rem; margin-bottom: 6px; }
+.modal-text-last { font-size: .85rem; margin-bottom: 16px; }
+.modal-about-desc { margin: 10px 0; font-size: .9rem; color: var(--muted); }
+.modal-center { text-align: center; }
+.modal-invite-hint { font-size: .85rem; color: var(--muted); margin: 8px 0; }
+.voice-heard { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; color: var(--green); }
+.voice-parsed { font-size: .9rem; margin-bottom: 12px; }
+.voice-label { font-size: .8rem; color: var(--muted); margin-bottom: 4px; }
+.btn-cancel { background: var(--muted); color: #fff; }
+.btn-primary { background: var(--green); color: #fff; }
+.btn-danger { background: var(--red); color: #fff; }
+.form-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.input-qty { width: 70px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; background: var(--bg); color: var(--text); }
+.input-unit { width: 80px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; background: var(--bg); color: var(--text); }
+.input-cat { flex: 1; }
+.invite-code-box { font-size: 2rem; font-weight: 700; letter-spacing: 6px; color: var(--green); border: 2px dashed var(--green); border-radius: 12px; padding: 16px; margin: 12px 0; }

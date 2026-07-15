@@ -8,8 +8,8 @@ import { changeQty } from './actions.js';
 
 export function switchView(view) {
   const isHome = view === 'home';
-  document.getElementById('view-home').style.display = isHome ? '' : 'none';
-  document.getElementById('view-shop').style.display = isHome ? 'none' : '';
+  document.getElementById('view-home').classList.toggle('view-hidden', !isHome);
+  document.getElementById('view-shop').classList.toggle('view-hidden', isHome);
   document.getElementById('tab-btn-home').classList.toggle('active', isHome);
   document.getElementById('tab-btn-shop').classList.toggle('active', !isHome);
   document.getElementById('menu-home').classList.toggle('active-view', isHome);

@@ -309,7 +309,7 @@ function clearSearch() {
   render();
 }
 
-// ── Event listeners ──
+// ── Keyboard shortcuts ──
 document.getElementById('inp-name').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
 document.getElementById('main-search').addEventListener('keydown', e => { if (e.key === 'Escape') clearSearch(); });
 document.addEventListener('click', (e) => {
@@ -391,33 +391,44 @@ window._load = load;
     .catch(() => load());
 })();
 
-// ── Expose to inline onclick handlers ──
-window.openDrawer = openDrawer;
-window.closeDrawer = closeDrawer;
-window.drawerAction = drawerAction;
-window.toggleFamilySwitcher = toggleFamilySwitcher;
-window.switchFamily = switchFamily;
-window.switchView = switchView;
-window.selectCat = selectCat;
+// ── Event Delegation (replaces all onclick/window.* exports) ──
+const actions = {
+  openDrawer, closeDrawer, toggleFamilySwitcher, switchView,
+  selectCat, toggle, adjustQty, moveToTop, del, confirmDel,
+  undoLastDelete, openEdit, saveEdit, addItem, bulkAdd, closeModal,
+  onSearchInput, quickAddByIndex, quickAddCustom, clearSearch,
+  onNameInput, selectMasterIdx, confirmVoiceAdd, shopSelectAll,
+  doneShop, nextOnboardingStep, dismissOnboarding,
+  copyInviteCode: () => { navigator.clipboard.writeText(document.getElementById('modal-invite-code').textContent); showNotif('Code copied!'); },
+  drawerAction
+};
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.dataset.action;
+  const param = el.dataset.param;
+  if (action === 'drawerAction' && param) { drawerAction(param); }
+  else if (action === 'switchView' && param) { switchView(param); }
+  else if (action === 'closeModal' && param) { closeModal(param); }
+  else if (action === 'shopSelectAll') { shopSelectAll(param === 'true'); }
+  else if (action === 'switchFamily' && param) { switchFamily(param); }
+  else if (actions[action]) { actions[action](); }
+});
+
+// Input events (can't use data-action for these)
+document.getElementById('main-search').addEventListener('input', (e) => onSearchInput(e.target.value));
+document.getElementById('inp-name').addEventListener('input', () => onNameInput());
+
+// Also expose key functions on window for dynamically rendered onclick handlers (render.js, shop.js)
 window.toggle = toggle;
 window.adjustQty = adjustQty;
 window.moveToTop = moveToTop;
 window.del = del;
-window.confirmDel = confirmDel;
-window.undoLastDelete = undoLastDelete;
 window.openEdit = openEdit;
-window.saveEdit = saveEdit;
-window.addItem = addItem;
-window.bulkAdd = bulkAdd;
-window.closeModal = closeModal;
-window.onSearchInput = onSearchInput;
+window.selectCat = selectCat;
 window.quickAddByIndex = quickAddByIndex;
 window.quickAddCustom = quickAddCustom;
-window.clearSearch = clearSearch;
-window.onNameInput = onNameInput;
 window.selectMasterIdx = selectMasterIdx;
-window.confirmVoiceAdd = confirmVoiceAdd;
-window.shopSelectAll = shopSelectAll;
-window.doneShop = doneShop;
-window.nextOnboardingStep = nextOnboardingStep;
-window.dismissOnboarding = dismissOnboarding;
+window.switchFamily = switchFamily;
+window.drawerAction = drawerAction;
